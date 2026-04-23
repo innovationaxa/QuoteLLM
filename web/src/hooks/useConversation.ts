@@ -140,7 +140,7 @@ export function useConversation() {
     withTyping(700, () => {
       const q = getQuestion(nextId);
       if (q.type === 'choice') {
-        bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[]);
+        bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[], nextId);
         dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
       } else {
         bot(q.prompt);
