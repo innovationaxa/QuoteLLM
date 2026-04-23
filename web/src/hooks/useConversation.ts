@@ -1,68 +1,48 @@
 import { useReducer, useEffect, useRef, useCallback } from 'react';
-import { ChatMessage, Step, Answers, QuoteData } from '../types';
-import { QUESTIONS, CONSENT_TEXT } from '../data/questionnaire';
-import { calculateQuote } from '../data/pricing';
+import { ChatMessage, Answers, QuoteResult, RecapData, QuickReplyOption } from '../types';
+import { CONSENT_TEXT, getNextQuestionId, getQuestion, getSectionOf } from '../data/questionnaire';
+import { calculateQuote, buildRecapData } from '../data/pricing';
 
 // ─── state ────────────────────────────────────────────────────────────────────
 
 interface State {
-  messages: ChatMessage[];
-  step: Step;
-  isTyping: boolean;
-  inputDisabled: boolean;
+  messages:         ChatMessage[];
+  isTyping:         boolean;
+  inputDisabled:    boolean;
   inputPlaceholder: string;
-  validationError: string | null;
+  validationError:  string | null;
+  currentStep:      string;
 }
 
 type Action =
-  | { type: 'ADD_MSG';        payload: ChatMessage }
-  | { type: 'TYPING';         payload: boolean }
-  | { type: 'SET_STEP';       payload: Step }
-  | { type: 'SET_INPUT';      payload: { disabled: boolean; placeholder?: string } }
-  | { type: 'SET_ERROR';      payload: string | null }
-  | { type: 'CONSUME_WIDGET'; payload: string };
+  | { type: 'ADD_MSG';    payload: ChatMessage }
+  | { type: 'TYPING';     payload: boolean }
+  | { type: 'SET_INPUT';  payload: { disabled: boolean; placeholder?: string } }
+  | { type: 'SET_ERROR';  payload: string | null }
+  | { type: 'SET_STEP';   payload: string }
+  | { type: 'CONSUME';    payload: string };
+
+const INIT: State = {
+  messages: [], isTyping: false, inputDisabled: true,
+  inputPlaceholder: '', validationError: null, currentStep: 'start',
+};
 
 function reducer(s: State, a: Action): State {
   switch (a.type) {
-    case 'ADD_MSG':
-      return { ...s, messages: [...s.messages, a.payload] };
-    case 'TYPING':
-      return { ...s, isTyping: a.payload };
-    case 'SET_STEP':
-      return { ...s, step: a.payload };
-    case 'SET_INPUT':
-      return {
-        ...s,
-        inputDisabled:    a.payload.disabled,
-        inputPlaceholder: a.payload.placeholder ?? s.inputPlaceholder,
-      };
-    case 'SET_ERROR':
-      return { ...s, validationError: a.payload };
-    case 'CONSUME_WIDGET':
-      return {
-        ...s,
-        messages: s.messages.map(m =>
-          m.id === a.payload ? { ...m, consumed: true } : m,
-        ),
-      };
-    default:
-      return s;
+    case 'ADD_MSG':   return { ...s, messages: [...s.messages, a.payload] };
+    case 'TYPING':    return { ...s, isTyping: a.payload };
+    case 'SET_INPUT': return { ...s, inputDisabled: a.payload.disabled, inputPlaceholder: a.payload.placeholder ?? s.inputPlaceholder };
+    case 'SET_ERROR': return { ...s, validationError: a.payload };
+    case 'SET_STEP':  return { ...s, currentStep: a.payload };
+    case 'CONSUME':   return { ...s, messages: s.messages.map(m => m.id === a.payload ? { ...m, consumed: true } : m) };
+    default:          return s;
   }
 }
 
-const init: State = {
-  messages:         [],
-  step:             'start',
-  isTyping:         false,
-  inputDisabled:    true,
-  inputPlaceholder: '',
-  validationError:  null,
-};
-
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
-let _idCounter = 0;
-function uid() { return `msg-${++_idCounter}-${Date.now()}`; }
+let _ctr = 0;
+const uid = () => `m${++_ctr}-${Date.now()}`;
 
 function makeMsg(
   role: ChatMessage['role'],
@@ -76,171 +56,198 @@ function makeMsg(
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export function useConversation() {
-  const [state, dispatch] = useReducer(reducer, init);
-
-  // Stable ref to accumulate answers without stale-closure issues
+  const [state, dispatch] = useReducer(reducer, INIT);
   const answersRef = useRef<Answers>({});
-  const timers     = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const prevSectionRef = useRef<'situation' | 'besoins' | null>(null);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  function later(fn: () => void, ms: number) {
+  const later = (fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms);
     timers.current.push(id);
-  }
+  };
 
-  // Cleanup timers on unmount
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
-  // ── typing animation wrapper ──────────────────────────────────────────────
+  // ── core primitives ───────────────────────────────────────────────────────
+
   function withTyping(ms: number, fn: () => void) {
     dispatch({ type: 'TYPING', payload: true });
-    later(() => {
-      dispatch({ type: 'TYPING', payload: false });
-      fn();
-    }, ms);
+    later(() => { dispatch({ type: 'TYPING', payload: false }); fn(); }, ms);
   }
 
-  // ── add messages ─────────────────────────────────────────────────────────
-  function assistant(
-    content: string,
-    widget?: ChatMessage['widget'],
-    widgetData?: ChatMessage['widgetData'],
-  ) {
+  function bot(content: string, widget?: ChatMessage['widget'], widgetData?: ChatMessage['widgetData']) {
     dispatch({ type: 'ADD_MSG', payload: makeMsg('assistant', content, widget, widgetData) });
   }
 
-  function user(content: string) {
+  function me(content: string) {
     dispatch({ type: 'ADD_MSG', payload: makeMsg('user', content) });
   }
 
-  // ── question flow ─────────────────────────────────────────────────────────
-  const goToQuestion = useCallback((index: number) => {
-    if (index >= QUESTIONS.length) {
-      // All questions done → calculate
-      dispatch({ type: 'SET_STEP',  payload: 'calculating' });
+  // ── flow engine ───────────────────────────────────────────────────────────
+
+  const advance = useCallback((answers: Answers) => {
+    const nextId = getNextQuestionId(answers);
+
+    // ── All questions done → show recap ──────────────────────────────────
+    if (!nextId) {
+      dispatch({ type: 'SET_STEP', payload: 'recap' });
       dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
-
-      withTyping(700, () => {
-        assistant('Parfait ! Je calcule votre tarif indicatif…', 'calculating');
-
-        later(() => {
-          const quote = calculateQuote(answersRef.current as Required<Answers>);
-          dispatch({ type: 'SET_STEP', payload: 'result' });
-
-          withTyping(1200, () => {
-            assistant(
-              'Voici votre **devis Santé indicatif** :',
-              'quote-card',
-              quote as unknown as QuoteData,
-            );
-
-            later(() => {
-              withTyping(800, () => {
-                assistant(
-                  'Souhaitez-vous être **recontacté(e) par un conseiller** pour finaliser votre souscription ?',
-                  'contact-cta',
-                );
-                dispatch({ type: 'SET_STEP', payload: 'contact' });
-              });
-            }, 600);
-          });
-        }, 2000);
+      withTyping(800, () => {
+        const recap = buildRecapData(answers);
+        bot(
+          'Voici un récapitulatif de votre situation. Tout est correct ?',
+          'recap-confirm',
+          recap as unknown as RecapData,
+        );
       });
       return;
     }
 
-    const q = QUESTIONS[index];
-    dispatch({ type: 'SET_STEP', payload: q.id as Step });
+    const section = getSectionOf(nextId);
+    dispatch({ type: 'SET_STEP', payload: nextId });
 
+    // ── Section transition: situation → besoins ──────────────────────────
+    if (section === 'besoins' && prevSectionRef.current === 'situation') {
+      prevSectionRef.current = 'besoins';
+      withTyping(600, () => {
+        bot(
+          'Parfait, votre situation est complète !\n\nPassons maintenant à vos **besoins en santé** pour trouver la formule la plus adaptée.',
+          'section-divider',
+          { label: 'Vos besoins' } as { label: string },
+        );
+        later(() => {
+          const q = getQuestion(nextId);
+          withTyping(700, () => {
+            if (q.type === 'choice') {
+              bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[]);
+              dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
+            } else {
+              bot(q.prompt);
+              dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder: q.placeholder ?? 'Votre réponse…' } });
+            }
+          });
+        }, 800);
+      });
+      return;
+    }
+
+    if (section === 'situation' && prevSectionRef.current === null) {
+      prevSectionRef.current = 'situation';
+    }
+
+    // ── Regular next question ─────────────────────────────────────────────
     withTyping(700, () => {
+      const q = getQuestion(nextId);
       if (q.type === 'choice') {
-        assistant(q.prompt, 'quick-reply', q.options);
+        bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[]);
         dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
       } else {
-        assistant(q.prompt);
-        dispatch({
-          type: 'SET_INPUT',
-          payload: { disabled: false, placeholder: q.placeholder ?? 'Votre réponse…' },
-        });
+        bot(q.prompt);
+        dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder: q.placeholder ?? 'Votre réponse…' } });
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── boot: show consent on mount ───────────────────────────────────────────
+  // ── boot ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     dispatch({ type: 'SET_STEP', payload: 'consent' });
-    withTyping(1000, () => {
-      assistant(CONSENT_TEXT, 'consent-card');
-    });
+    withTyping(1000, () => bot(CONSENT_TEXT, 'consent-card'));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── public API ────────────────────────────────────────────────────────────
+  // ─── answer helpers ───────────────────────────────────────────────────────
+
+  function recordAnswer(id: string, value: string) {
+    if (id.startsWith('child_')) {
+      const idx = parseInt(id.split('_')[1]);
+      const births = [...(answersRef.current.children_births ?? [])];
+      births[idx] = value;
+      answersRef.current = { ...answersRef.current, children_births: births };
+    } else if (id === 'children_count') {
+      answersRef.current = { ...answersRef.current, children_count: parseInt(value) };
+    } else {
+      answersRef.current = { ...answersRef.current, [id]: value };
+    }
+  }
+
+  // ─── public API ───────────────────────────────────────────────────────────
 
   const acceptConsent = useCallback((msgId: string) => {
-    dispatch({ type: 'CONSUME_WIDGET', payload: msgId });
-    user("J'accepte et je souhaite obtenir un devis.");
-    goToQuestion(0);
-  }, [goToQuestion]);
+    dispatch({ type: 'CONSUME', payload: msgId });
+    me("J'accepte et je souhaite obtenir un devis.");
+    advance(answersRef.current);
+  }, [advance]);
 
   const declineConsent = useCallback((msgId: string) => {
-    dispatch({ type: 'CONSUME_WIDGET', payload: msgId });
-    user('Je refuse.');
-    withTyping(800, () => {
-      assistant("Je comprends. Revenez quand vous le souhaitez. Bonne journée !");
-      dispatch({ type: 'SET_STEP', payload: 'done' });
-    });
+    dispatch({ type: 'CONSUME', payload: msgId });
+    me('Je refuse.');
+    withTyping(800, () => bot("Je comprends. Revenez quand vous le souhaitez. Bonne journée !"));
+    dispatch({ type: 'SET_STEP', payload: 'done' });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submitText = useCallback((value: string) => {
-    const qIndex = QUESTIONS.findIndex(q => q.id === state.step);
-    if (qIndex === -1) return;
-
-    const q = QUESTIONS[qIndex];
-    const err = q.validate?.(value) ?? null;
+    const step = state.currentStep;
+    const q = getQuestion(step);
+    const err = q.validate?.(value.trim()) ?? null;
     if (err) { dispatch({ type: 'SET_ERROR', payload: err }); return; }
-
     dispatch({ type: 'SET_ERROR', payload: null });
     dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
-    user(value.trim());
-
-    answersRef.current = { ...answersRef.current, [q.id]: value.trim() };
-    goToQuestion(qIndex + 1);
-  }, [state.step, goToQuestion]);
+    me(value.trim());
+    recordAnswer(step, value.trim());
+    advance({ ...answersRef.current });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentStep, advance]);
 
   const selectOption = useCallback((msgId: string, questionId: string, value: string, label: string) => {
-    dispatch({ type: 'CONSUME_WIDGET', payload: msgId });
-    user(`${label}`);
+    dispatch({ type: 'CONSUME', payload: msgId });
+    me(label);
+    recordAnswer(questionId, value);
+    advance({ ...answersRef.current });
+  }, [advance]);
 
-    answersRef.current = { ...answersRef.current, [questionId]: value };
-    const qIndex = QUESTIONS.findIndex(q => q.id === questionId);
-    goToQuestion(qIndex + 1);
-  }, [goToQuestion]);
+  const confirmRecap = useCallback((msgId: string) => {
+    dispatch({ type: 'CONSUME', payload: msgId });
+    me('Oui, tout est correct, calculez mon devis !');
+    dispatch({ type: 'SET_STEP', payload: 'calculating' });
+    withTyping(800, () => {
+      bot('Parfait ! Je calcule vos tarifs indicatifs…', 'calculating');
+      later(() => {
+        const quote = calculateQuote(answersRef.current);
+        dispatch({ type: 'SET_STEP', payload: 'result' });
+        withTyping(1500, () => {
+          bot('Voici les **3 formules** que nous vous proposons :', 'formula-comparison', quote as unknown as QuoteResult);
+          later(() => {
+            withTyping(700, () => {
+              bot(
+                'Souhaitez-vous être **recontacté(e) par un conseiller** pour finaliser votre souscription ?',
+                'contact-cta',
+              );
+              dispatch({ type: 'SET_STEP', payload: 'contact' });
+            });
+          }, 600);
+        });
+      }, 2200);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const requestContact = useCallback((msgId: string) => {
-    dispatch({ type: 'CONSUME_WIDGET', payload: msgId });
-    user('Oui, je souhaite être recontacté(e).');
+    dispatch({ type: 'CONSUME', payload: msgId });
+    me('Oui, je souhaite être recontacté(e).');
     withTyping(800, () => {
-      assistant(
-        `Parfait ! Un conseiller Direct Assurances vous contactera très prochainement.
-
-*Ce devis est indicatif et non contractuel. La souscription et la validation finale restent nécessaires.*`,
-      );
+      bot('Parfait ! Un conseiller Direct Assurances vous contactera très prochainement.\n\n*Ce devis est indicatif et non contractuel. La souscription et la validation finale restent nécessaires.*');
       dispatch({ type: 'SET_STEP', payload: 'done' });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const dismissContact = useCallback((msgId: string) => {
-    dispatch({ type: 'CONSUME_WIDGET', payload: msgId });
-    user('Non merci, pas pour l\'instant.');
+    dispatch({ type: 'CONSUME', payload: msgId });
+    me("Non merci, pas pour l'instant.");
     withTyping(800, () => {
-      assistant(
-        `Bien sûr. Votre devis indicatif reste disponible dans cette conversation.
-
-N'hésitez pas à revenir si vous avez des questions !`,
-      );
+      bot("Bien sûr. Votre devis reste disponible dans cette conversation. N'hésitez pas à revenir si vous avez des questions !");
       dispatch({ type: 'SET_STEP', payload: 'done' });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -248,16 +255,12 @@ N'hésitez pas à revenir si vous avez des questions !`,
 
   return {
     messages:         state.messages,
-    step:             state.step,
+    currentStep:      state.currentStep,
     isTyping:         state.isTyping,
     inputDisabled:    state.inputDisabled,
     inputPlaceholder: state.inputPlaceholder,
     validationError:  state.validationError,
-    acceptConsent,
-    declineConsent,
-    submitText,
-    selectOption,
-    requestContact,
-    dismissContact,
+    acceptConsent, declineConsent, submitText, selectOption,
+    confirmRecap, requestContact, dismissContact,
   };
 }

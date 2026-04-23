@@ -3,8 +3,10 @@ export type MessageRole = 'assistant' | 'user';
 export type WidgetType =
   | 'consent-card'
   | 'quick-reply'
+  | 'section-divider'
   | 'calculating'
-  | 'quote-card'
+  | 'recap-confirm'
+  | 'formula-comparison'
   | 'contact-cta';
 
 export interface QuickReplyOption {
@@ -13,14 +15,24 @@ export interface QuickReplyOption {
   emoji?: string;
 }
 
-export interface QuoteData {
+export interface RecapItem  { icon: string; label: string; value: string }
+export interface RecapData  { situation: RecapItem[]; besoins: RecapItem[] }
+
+export interface FormulaResult {
+  id: string;
+  name: string;
+  tagline: string;
   monthlyPremium: number;
   annualPremium: number;
-  coverageLabel: string;
-  regimeLabel: string;
-  beneficiariesLabel: string;
-  ageBand: string;
-  postalCode: string;
+  coverage: { soins: string; hospitalisation: string; optique: string; dentaire: string };
+  recommended: boolean;
+  color: 'blue' | 'yellow' | 'purple';
+}
+
+export interface QuoteResult {
+  formulas: FormulaResult[];
+  recommendedId: string;
+  recommendationReason: string;
 }
 
 export interface ChatMessage {
@@ -29,27 +41,24 @@ export interface ChatMessage {
   content: string;
   timestamp: Date;
   widget?: WidgetType;
-  widgetData?: QuickReplyOption[] | QuoteData;
+  widgetData?: QuickReplyOption[] | RecapData | QuoteResult | { label: string };
   consumed?: boolean;
 }
 
-export type Step =
-  | 'start'
-  | 'consent'
-  | 'date_of_birth'
-  | 'postal_code'
-  | 'regime'
-  | 'beneficiaries'
-  | 'coverage_level'
-  | 'calculating'
-  | 'result'
-  | 'contact'
-  | 'done';
-
 export interface Answers {
+  family_composition?: string;
   date_of_birth?: string;
-  postal_code?: string;
   regime?: string;
-  beneficiaries?: string;
-  coverage_level?: string;
+  postal_code?: string;
+  partner_birth?: string;
+  partner_regime?: string;
+  children_count?: number;
+  children_births?: string[];
+  currently_insured?: string;
+  wants_cancellation?: string;
+  start_date?: string;
+  doctors_need?: string;
+  hospitalization_need?: string;
+  optics_need?: string;
+  dental_need?: string;
 }
