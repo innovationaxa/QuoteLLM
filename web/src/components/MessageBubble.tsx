@@ -19,7 +19,6 @@ function renderText(text: string) {
 
 interface Props {
   message:           ChatMessage;
-  questionId?:       string;
   onAcceptConsent:   (id: string) => void;
   onDeclineConsent:  (id: string) => void;
   onSelectOption:    (msgId: string, questionId: string, value: string, label: string) => void;
@@ -29,7 +28,7 @@ interface Props {
 }
 
 export function MessageBubble({
-  message, questionId,
+  message,
   onAcceptConsent, onDeclineConsent, onSelectOption,
   onConfirmRecap, onRequestContact, onDismissContact,
 }: Props) {
@@ -76,10 +75,10 @@ export function MessageBubble({
           />
         )}
 
-        {!message.consumed && message.widget === 'quick-reply' && questionId && (
+        {!message.consumed && message.widget === 'quick-reply' && message.questionId && (
           <QuickReply
             options={message.widgetData as QuickReplyOption[]}
-            onSelect={(v, l) => onSelectOption(message.id, questionId, v, l)}
+            onSelect={(v, l) => onSelectOption(message.id, message.questionId!, v, l)}
           />
         )}
 

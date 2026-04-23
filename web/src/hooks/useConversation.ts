@@ -49,8 +49,9 @@ function makeMsg(
   content: string,
   widget?: ChatMessage['widget'],
   widgetData?: ChatMessage['widgetData'],
+  questionId?: string,
 ): ChatMessage {
-  return { id: uid(), role, content, timestamp: new Date(), widget, widgetData };
+  return { id: uid(), role, content, timestamp: new Date(), widget, widgetData, questionId };
 }
 
 // ─── hook ─────────────────────────────────────────────────────────────────────
@@ -75,8 +76,8 @@ export function useConversation() {
     later(() => { dispatch({ type: 'TYPING', payload: false }); fn(); }, ms);
   }
 
-  function bot(content: string, widget?: ChatMessage['widget'], widgetData?: ChatMessage['widgetData']) {
-    dispatch({ type: 'ADD_MSG', payload: makeMsg('assistant', content, widget, widgetData) });
+  function bot(content: string, widget?: ChatMessage['widget'], widgetData?: ChatMessage['widgetData'], questionId?: string) {
+    dispatch({ type: 'ADD_MSG', payload: makeMsg('assistant', content, widget, widgetData, questionId) });
   }
 
   function me(content: string) {
@@ -119,7 +120,7 @@ export function useConversation() {
           const q = getQuestion(nextId);
           withTyping(700, () => {
             if (q.type === 'choice') {
-              bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[]);
+              bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[], nextId);
               dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
             } else {
               bot(q.prompt);

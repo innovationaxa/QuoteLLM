@@ -42,6 +42,7 @@ export interface ChatMessage {
   timestamp: Date;
   widget?: WidgetType;
   widgetData?: QuickReplyOption[] | RecapData | QuoteResult | { label: string };
+  questionId?: string; // set for quick-reply widgets to avoid ambiguous option matching
   consumed?: boolean;
 }
 

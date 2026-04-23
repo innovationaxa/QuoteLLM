@@ -4,7 +4,6 @@ import { MessageBubble }    from './components/MessageBubble';
 import { TypingIndicator }  from './components/TypingIndicator';
 import { InputBar }         from './components/InputBar';
 import { useConversation }  from './hooks/useConversation';
-import { QuickReplyOption } from './types';
 
 const PHASES = ['Ma situation', 'Mes besoins', 'Notre offre'];
 
@@ -54,16 +53,10 @@ export default function App() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4">
           <div className="max-w-2xl mx-auto py-6 flex flex-col">
-            {messages.map(msg => {
-              const qId = msg.widget === 'quick-reply' && Array.isArray(msg.widgetData)
-                ? findQuestionIdByOptions(msg.widgetData as QuickReplyOption[])
-                : undefined;
-
-              return (
+            {messages.map(msg => (
                 <MessageBubble
                   key={msg.id}
                   message={msg}
-                  questionId={qId}
                   onAcceptConsent={acceptConsent}
                   onDeclineConsent={declineConsent}
                   onSelectOption={selectOption}
@@ -71,8 +64,7 @@ export default function App() {
                   onRequestContact={requestContact}
                   onDismissContact={dismissContact}
                 />
-              );
-            })}
+            ))}
             {isTyping && <TypingIndicator />}
             <div ref={bottomRef} />
           </div>
@@ -89,24 +81,3 @@ export default function App() {
   );
 }
 
-// Match quick-reply widgetData back to its question ID by checking option values
-const QUESTION_OPTION_MAP: Record<string, string[]> = {
-  family_composition:    ['single', 'couple', 'family', 'parent'],
-  regime:                ['general', 'independent', 'agriculture', 'student', 'alsace_moselle'],
-  partner_regime:        ['general', 'independent', 'agriculture', 'student', 'alsace_moselle'],
-  children_count:        ['1', '2', '3', '4'],
-  currently_insured:     ['yes_long', 'yes_short', 'no'],
-  wants_cancellation:    ['yes', 'no'],
-  start_date:            ['next_month', 'in_3_months', 'in_6_months'],
-  doctors_need:          ['routine', 'regular', 'intensive'],
-  hospitalization_need:  ['minimum', 'comfort', 'premium'],
-  optics_need:           ['minimum', 'standard', 'enhanced'],
-  dental_need:           ['routine', 'prosthetics', 'orthodontics'],
-};
-
-function findQuestionIdByOptions(options: QuickReplyOption[]): string | undefined {
-  const values = options.map(o => o.value);
-  return Object.entries(QUESTION_OPTION_MAP).find(([, opts]) =>
-    values.length > 0 && opts.includes(values[0])
-  )?.[0];
-}
