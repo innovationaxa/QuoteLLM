@@ -207,24 +207,24 @@ export function useConversation() {
               : 'Voici les **3 formules** que nous te proposons :';
             bot(compMsg, 'formula-comparison', quote as unknown as QuoteResult);
             later(() => {
+              // CTA en premier — chemin principal toujours visible
               withTyping(700, () => {
-                const tunerData = answersToTuner(answersRef.current);
                 bot(
-                  '💡 Tu peux **affiner tes besoins** avec les curseurs ci-dessous pour voir comment les formules évoluent. Je suis là si tu as des questions !',
-                  'needs-tuner',
-                  tunerData as unknown as QuoteResult,
+                  '👉 **Direct Assurance** (groupe AXA) s\'occupe de tout — souscription sur un site sécurisé, avec une équipe humaine si tu as des questions.',
+                  'cta-card',
                 );
-                dispatch({ type: 'SET_STEP', payload: 'refine' });
+                dispatch({ type: 'SET_STEP', payload: 'contact' });
                 enableInput('Une question sur les formules ?');
+                // Tuner en option facultative, après le CTA
                 later(() => {
-                  withTyping(600, () => {
-                    bot(
-                      '👉 **Direct Assurance** (groupe AXA) s\'occupe de tout — souscription sur un site sécurisé, avec une équipe humaine si tu as des questions.',
-                      'cta-card',
-                    );
-                    dispatch({ type: 'SET_STEP', payload: 'contact' });
-                  });
-                }, 500);
+                  const tunerData = answersToTuner(answersRef.current);
+                  bot(
+                    'Tu veux affiner les garanties avant de décider ? C\'est optionnel — ajuste les curseurs et je recalcule.',
+                    'needs-tuner',
+                    tunerData as unknown as QuoteResult,
+                  );
+                  dispatch({ type: 'SET_STEP', payload: 'refine' });
+                }, 600);
               });
             }, 600);
           });

@@ -85,11 +85,16 @@ export function NeedsTuner({ data, onApply }: Props) {
   return (
     <div className="mt-3 rounded-2xl border border-border overflow-hidden max-w-md animate-fade-up">
       {/* Header */}
-      <div className="bg-elevated px-4 py-3 border-b border-border">
-        <p className="text-sm font-semibold text-gray-900">Affiner mes besoins</p>
-        <p className="text-xs text-muted mt-0.5">
-          Ajuste les curseurs ci-dessous — les formules se recalculent automatiquement.
-        </p>
+      <div className="bg-elevated px-4 py-3 border-b border-border flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-gray-900">Affiner mes garanties</p>
+          <p className="text-xs text-muted mt-0.5">
+            Ajuste les curseurs pour voir l'impact sur les tarifs.
+          </p>
+        </div>
+        <span className="shrink-0 text-[10px] font-medium text-muted bg-white border border-border rounded-full px-2 py-0.5 mt-0.5">
+          Optionnel
+        </span>
       </div>
 
       <div className="p-4 bg-white flex flex-col gap-5">
