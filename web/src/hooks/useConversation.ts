@@ -63,6 +63,7 @@ export function useConversation() {
   const [state, dispatch] = useReducer(reducer, INIT);
   const answersRef             = useRef<Answers>({});
   const intentionMsgShownRef   = useRef(false);
+  const docUploadShownRef      = useRef(false);
   const quickEstimateShownRef  = useRef(false);
   const prevSectionRef         = useRef<'context' | 'refinement' | 'besoins' | null>(null);
   const timers                 = useRef<ReturnType<typeof setTimeout>[]>([]);
@@ -114,11 +115,30 @@ export function useConversation() {
       return;
     }
 
+    // ── INTERCEPT 1.5: option fast-track document (si assuré, avant price) ─
+    if (
+      answers.currently_insured === 'yes' &&
+      !answers.current_price &&
+      !answers.doc_upload_skipped &&
+      !docUploadShownRef.current
+    ) {
+      docUploadShownRef.current = true;
+      dispatch({ type: 'SET_STEP', payload: 'doc_upload' });
+      withTyping(700, () => {
+        bot(
+          'Avant de continuer, **une astuce** : tu peux m\'envoyer une photo de ta carte de tiers payant ou de ton attestation. Ça me permettra de pré-remplir certaines infos et d\'économiser des questions.',
+          'document-upload',
+        );
+        dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
+      });
+      return;
+    }
+
     // ── INTERCEPT 2: premier aperçu + transition vers profil ──────────────
     const contextComplete = !!(
       answers.intention &&
       answers.currently_insured &&
-      (answers.currently_insured !== 'yes' || answers.current_price)
+      (answers.currently_insured !== 'yes' || answers.current_price || answers.doc_upload_skipped)
     );
 
     if (contextComplete && !quickEstimateShownRef.current) {
@@ -278,6 +298,61 @@ export function useConversation() {
     advance({ ...answersRef.current });
   }, [advance]);
 
+  // ── Handlers document upload ──────────────────────────────────────────────
+
+  const handleDocUpload = useCallback((msgId: string, _file: File) => {
+    dispatch({ type: 'CONSUME', payload: msgId });
+    me('📎 Voici ma carte de tiers payant.');
+
+    // Simulate OCR analysis
+    withTyping(2000, () => {
+      // Pre-fill simulated data from "OCR"
+      answersRef.current = {
+        ...answersRef.current,
+        current_insurer: 'MGEN',
+        regime: 'general',
+      };
+      bot(
+        "J'ai bien analysé ton document ✅\n\n" +
+        "J'ai identifié :\n" +
+        "- Assureur : **MGEN**\n" +
+        "- Régime : **Régime général**\n\n" +
+        "Ça nous fera gagner du temps sur la suite ! Il me reste juste ton budget mensuel approximatif pour comparer.",
+      );
+      later(() => {
+        withTyping(600, () => {
+          const q = getQuestion('current_price');
+          bot(q.prompt);
+          dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder: q.placeholder ?? '' } });
+          dispatch({ type: 'SET_STEP', payload: 'current_price' });
+        });
+      }, 900);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleDocEnterManually = useCallback((msgId: string) => {
+    dispatch({ type: 'CONSUME', payload: msgId });
+    me('Je préfère saisir le montant directement.');
+    withTyping(500, () => {
+      const q = getQuestion('current_price');
+      bot(q.prompt);
+      dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder: q.placeholder ?? '' } });
+      dispatch({ type: 'SET_STEP', payload: 'current_price' });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleDocSkip = useCallback((msgId: string) => {
+    dispatch({ type: 'CONSUME', payload: msgId });
+    me('Je passe cette étape.');
+    answersRef.current = { ...answersRef.current, doc_upload_skipped: true };
+    advance({ ...answersRef.current });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [advance]);
+
+  // ── CTA handlers ─────────────────────────────────────────────────────────
+
   const continueToBuy = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
     me('Je souhaite continuer sur Direct Assurance.');
@@ -306,6 +381,7 @@ export function useConversation() {
     inputPlaceholder: state.inputPlaceholder,
     validationError:  state.validationError,
     acceptConsent, declineConsent, submitText, selectOption,
+    handleDocUpload, handleDocEnterManually, handleDocSkip,
     continueToBuy, requestCallback,
   };
 }

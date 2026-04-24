@@ -7,6 +7,7 @@ export type WidgetType =
   | 'calculating'
   | 'formula-comparison'
   | 'quick-estimate'
+  | 'document-upload'
   | 'cta-card';
 
 export interface QuickReplyOption {
@@ -71,6 +72,7 @@ export interface Answers {
   hospitalization_need?: string;
   optics_need?:          string;
   dental_need?:          string;
+  doc_upload_skipped?: boolean;
   // Conservés pour usage futur
   partner_birth?:    string;
   partner_regime?:   string;

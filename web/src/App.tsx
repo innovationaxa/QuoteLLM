@@ -21,6 +21,7 @@ export default function App() {
     messages, currentStep, isTyping,
     inputDisabled, inputPlaceholder, validationError,
     acceptConsent, declineConsent, submitText, selectOption,
+    handleDocUpload, handleDocEnterManually, handleDocSkip,
     continueToBuy, requestCallback,
   } = useConversation();
 
@@ -67,6 +68,9 @@ export default function App() {
                 onAcceptConsent={acceptConsent}
                 onDeclineConsent={declineConsent}
                 onSelectOption={selectOption}
+                onDocUpload={handleDocUpload}
+                onDocEnterManually={handleDocEnterManually}
+                onDocSkip={handleDocSkip}
                 onContinueToBuy={continueToBuy}
                 onRequestCallback={requestCallback}
               />

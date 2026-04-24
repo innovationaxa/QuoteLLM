@@ -1,10 +1,11 @@
 import { ChatMessage, QuickReplyOption, QuoteResult, QuickEstimateData } from '../types';
-import { ConsentCard }       from './ConsentCard';
-import { QuickReply }        from './QuickReply';
-import { CalculatingCard }   from './CalculatingCard';
-import { FormulaComparison } from './FormulaComparison';
-import { QuickEstimateCard } from './QuickEstimateCard';
-import { CTACard }           from './CTACard';
+import { ConsentCard }          from './ConsentCard';
+import { QuickReply }           from './QuickReply';
+import { CalculatingCard }      from './CalculatingCard';
+import { FormulaComparison }    from './FormulaComparison';
+import { QuickEstimateCard }    from './QuickEstimateCard';
+import { DocumentUploadCard }   from './DocumentUploadCard';
+import { CTACard }              from './CTACard';
 
 // Minimal markdown: **bold** and \n line breaks
 function renderText(text: string) {
@@ -18,17 +19,21 @@ function renderText(text: string) {
 }
 
 interface Props {
-  message:           ChatMessage;
-  onAcceptConsent:   (id: string) => void;
-  onDeclineConsent:  (id: string) => void;
-  onSelectOption:    (msgId: string, questionId: string, value: string, label: string) => void;
-  onContinueToBuy:   (id: string) => void;
-  onRequestCallback: (id: string) => void;
+  message:               ChatMessage;
+  onAcceptConsent:       (id: string) => void;
+  onDeclineConsent:      (id: string) => void;
+  onSelectOption:        (msgId: string, questionId: string, value: string, label: string) => void;
+  onDocUpload:           (msgId: string, file: File) => void;
+  onDocEnterManually:    (msgId: string) => void;
+  onDocSkip:             (msgId: string) => void;
+  onContinueToBuy:       (id: string) => void;
+  onRequestCallback:     (id: string) => void;
 }
 
 export function MessageBubble({
   message,
   onAcceptConsent, onDeclineConsent, onSelectOption,
+  onDocUpload, onDocEnterManually, onDocSkip,
   onContinueToBuy, onRequestCallback,
 }: Props) {
   if (message.role === 'user') {
@@ -84,6 +89,14 @@ export function MessageBubble({
 
         {message.widget === 'quick-estimate' && (
           <QuickEstimateCard data={message.widgetData as QuickEstimateData} />
+        )}
+
+        {!message.consumed && message.widget === 'document-upload' && (
+          <DocumentUploadCard
+            onUpload={(file)    => onDocUpload(message.id, file)}
+            onEnterManually={() => onDocEnterManually(message.id)}
+            onSkip={()          => onDocSkip(message.id)}
+          />
         )}
 
         {message.widget === 'formula-comparison' && (

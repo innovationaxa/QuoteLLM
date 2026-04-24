@@ -138,7 +138,7 @@ export function getNextQuestionId(answers: Answers): string | null {
   // Phase 1 – contexte
   if (!a.intention)         return 'intention';
   if (!a.currently_insured) return 'currently_insured';
-  if (a.currently_insured === 'yes' && !a.current_price) return 'current_price';
+  if (a.currently_insured === 'yes' && !a.current_price && !a.doc_upload_skipped) return 'current_price';
 
   // Phase 2 – profil
   if (!a.date_of_birth)      return 'date_of_birth';
