@@ -1,10 +1,10 @@
 import { useReducer, useEffect, useRef, useCallback } from 'react';
-import { ChatMessage, Answers, QuoteResult, QuickEstimateData, QuickReplyOption } from '../types';
+import { ChatMessage, Answers, QuoteResult, QuickEstimateData, QuickReplyOption, NeedsTunerData } from '../types';
 import {
   CONSENT_TEXT, getNextQuestionId, getQuestion, getSectionOf,
   getIntentionContextMessage,
 } from '../data/questionnaire';
-import { calculateQuote, buildQuickEstimate } from '../data/pricing';
+import { calculateQuote, buildQuickEstimate, answersToTuner, calculateQuoteFromTuner } from '../data/pricing';
 
 // ─── state ────────────────────────────────────────────────────────────────────
 
@@ -207,12 +207,24 @@ export function useConversation() {
               : 'Voici les **3 formules** que nous te proposons :';
             bot(compMsg, 'formula-comparison', quote as unknown as QuoteResult);
             later(() => {
-              withTyping(800, () => {
+              withTyping(700, () => {
+                const tunerData = answersToTuner(answersRef.current);
                 bot(
-                  '👉 **Direct Assurance** (groupe AXA) s\'occupe de tout — souscription sur un site sécurisé, avec une équipe humaine si tu as des questions. C\'est nous qui gérons ton contrat, pas ChatGPT.',
-                  'cta-card',
+                  '💡 Tu peux **affiner tes besoins** avec les curseurs ci-dessous pour voir comment les formules évoluent. Je suis là si tu as des questions !',
+                  'needs-tuner',
+                  tunerData as unknown as QuoteResult,
                 );
-                dispatch({ type: 'SET_STEP', payload: 'contact' });
+                dispatch({ type: 'SET_STEP', payload: 'refine' });
+                enableInput('Une question sur les formules ?');
+                later(() => {
+                  withTyping(600, () => {
+                    bot(
+                      '👉 **Direct Assurance** (groupe AXA) s\'occupe de tout — souscription sur un site sécurisé, avec une équipe humaine si tu as des questions.',
+                      'cta-card',
+                    );
+                    dispatch({ type: 'SET_STEP', payload: 'contact' });
+                  });
+                }, 500);
               });
             }, 600);
           });
@@ -415,6 +427,19 @@ export function useConversation() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [advance]);
 
+  // ── Needs tuner ──────────────────────────────────────────────────────────
+
+  const handleNeedsTuner = useCallback((msgId: string, needs: NeedsTunerData) => {
+    dispatch({ type: 'CONSUME', payload: msgId });
+    pendingWidgetIdRef.current = null;
+    me('J\'ai ajusté mes préférences de couverture.');
+    withTyping(900, () => {
+      const quote = calculateQuoteFromTuner(answersRef.current, needs);
+      bot('Voici les formules recalculées selon tes nouveaux besoins :', 'formula-comparison', quote as unknown as QuoteResult);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── CTA handlers ─────────────────────────────────────────────────────────
 
   const continueToBuy = useCallback((msgId: string) => {
@@ -450,6 +475,7 @@ export function useConversation() {
     validationError:  state.validationError,
     acceptConsent, declineConsent, submitText, selectOption,
     handleDocUpload, handleDocEnterManually, handleDocSkip,
+    handleNeedsTuner,
     continueToBuy, requestCallback,
   };
 }

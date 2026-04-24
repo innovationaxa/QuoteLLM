@@ -8,7 +8,7 @@ import { useConversation }  from './hooks/useConversation';
 const PHASES = ['Mon contexte', 'Mon profil', 'Ma comparaison'];
 
 function getPhaseIndex(step: string): number {
-  if (['result', 'contact', 'done'].includes(step)) return 2;
+  if (['result', 'refine', 'contact', 'done'].includes(step)) return 2;
   if ([
     'estimate', 'date_of_birth', 'family_composition', 'regime',
     'hospitalization_need', 'optics_need', 'dental_need', 'calculating',
@@ -22,6 +22,7 @@ export default function App() {
     inputDisabled, inputPlaceholder, validationError,
     acceptConsent, declineConsent, submitText, selectOption,
     handleDocUpload, handleDocEnterManually, handleDocSkip,
+    handleNeedsTuner,
     continueToBuy, requestCallback,
   } = useConversation();
 
@@ -71,6 +72,7 @@ export default function App() {
                 onDocUpload={handleDocUpload}
                 onDocEnterManually={handleDocEnterManually}
                 onDocSkip={handleDocSkip}
+                onNeedsTuner={handleNeedsTuner}
                 onContinueToBuy={continueToBuy}
                 onRequestCallback={requestCallback}
               />

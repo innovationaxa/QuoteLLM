@@ -8,6 +8,7 @@ export type WidgetType =
   | 'formula-comparison'
   | 'quick-estimate'
   | 'document-upload'
+  | 'needs-tuner'
   | 'cta-card';
 
 export interface QuickReplyOption {
@@ -46,13 +47,20 @@ export interface QuoteResult {
   currentInsurer?:      string;
 }
 
+export interface NeedsTunerData {
+  soins:           number; // 1-3
+  hospitalisation: number; // 1-3
+  optique:         number; // 1-3
+  dentaire:        number; // 1-3
+}
+
 export interface ChatMessage {
   id:          string;
   role:        MessageRole;
   content:     string;
   timestamp:   Date;
   widget?:     WidgetType;
-  widgetData?: QuickReplyOption[] | RecapData | QuoteResult | QuickEstimateData | { label: string };
+  widgetData?: QuickReplyOption[] | RecapData | QuoteResult | QuickEstimateData | NeedsTunerData | { label: string };
   questionId?: string;
   consumed?:   boolean;
 }

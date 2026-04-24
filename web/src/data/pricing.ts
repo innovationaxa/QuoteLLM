@@ -1,4 +1,4 @@
-import { Answers, FormulaResult, QuoteResult, QuickEstimateData } from '../types';
+import { Answers, FormulaResult, QuoteResult, QuickEstimateData, NeedsTunerData } from '../types';
 
 // ─── formula definitions ──────────────────────────────────────────────────────
 
@@ -105,6 +105,50 @@ function parsePrice(raw: string | undefined): number | undefined {
 }
 
 // ─── exports ──────────────────────────────────────────────────────────────────
+
+// ─── needs tuner helpers ──────────────────────────────────────────────────────
+
+const HOSP_MAP = ['minimum', 'comfort', 'premium'];
+const OPT_MAP  = ['minimum', 'standard', 'enhanced'];
+const DENT_MAP = ['routine', 'prosthetics', 'orthodontics'];
+// Extra €/month per soins level (applied before family mult)
+const SOINS_EXTRA = [0, 0, 3, 7];
+
+export function answersToTuner(a: Answers): NeedsTunerData {
+  return {
+    soins:           2,
+    hospitalisation: a.hospitalization_need === 'premium' ? 3 : a.hospitalization_need === 'comfort' ? 2 : 1,
+    optique:         a.optics_need === 'enhanced' ? 3 : a.optics_need === 'standard' ? 2 : 1,
+    dentaire:        a.dental_need === 'orthodontics' ? 3 : a.dental_need === 'prosthetics' ? 2 : 1,
+  };
+}
+
+export function calculateQuoteFromTuner(base: Answers, t: NeedsTunerData): QuoteResult {
+  const merged: Answers = {
+    ...base,
+    hospitalization_need: HOSP_MAP[t.hospitalisation - 1],
+    optics_need:          OPT_MAP[t.optique - 1],
+    dental_need:          DENT_MAP[t.dentaire - 1],
+  };
+  const quote = calculateQuote(merged);
+  const famMult   = FAMILY_MULT[base.family_composition ?? 'single'] ?? 1.0;
+  const soinsAdd  = Math.round((SOINS_EXTRA[t.soins] ?? 0) * famMult * 100) / 100;
+  const currentMonthlyPrice = parsePrice(base.current_price);
+  return {
+    ...quote,
+    formulas: quote.formulas.map(f => {
+      const monthly = Math.round((f.monthlyPremium + soinsAdd) * 100) / 100;
+      return {
+        ...f,
+        monthlyPremium: monthly,
+        annualPremium:  Math.round(monthly * 12 * 100) / 100,
+        monthlySaving:  currentMonthlyPrice !== undefined
+          ? Math.round((currentMonthlyPrice - monthly) * 10) / 10
+          : undefined,
+      };
+    }),
+  };
+}
 
 export function buildQuickEstimate(answers: Answers): QuickEstimateData {
   return {

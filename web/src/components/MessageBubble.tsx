@@ -1,10 +1,11 @@
-import { ChatMessage, QuickReplyOption, QuoteResult, QuickEstimateData } from '../types';
+import { ChatMessage, QuickReplyOption, QuoteResult, QuickEstimateData, NeedsTunerData } from '../types';
 import { ConsentCard }          from './ConsentCard';
 import { QuickReply }           from './QuickReply';
 import { CalculatingCard }      from './CalculatingCard';
 import { FormulaComparison }    from './FormulaComparison';
 import { QuickEstimateCard }    from './QuickEstimateCard';
 import { DocumentUploadCard }   from './DocumentUploadCard';
+import { NeedsTuner }           from './NeedsTuner';
 import { CTACard }              from './CTACard';
 import { DALogo }               from './DALogo';
 
@@ -27,6 +28,7 @@ interface Props {
   onDocUpload:           (msgId: string, file: File) => void;
   onDocEnterManually:    (msgId: string) => void;
   onDocSkip:             (msgId: string) => void;
+  onNeedsTuner:          (msgId: string, needs: NeedsTunerData) => void;
   onContinueToBuy:       (id: string) => void;
   onRequestCallback:     (id: string) => void;
 }
@@ -35,6 +37,7 @@ export function MessageBubble({
   message,
   onAcceptConsent, onDeclineConsent, onSelectOption,
   onDocUpload, onDocEnterManually, onDocSkip,
+  onNeedsTuner,
   onContinueToBuy, onRequestCallback,
 }: Props) {
   if (message.role === 'user') {
@@ -102,6 +105,13 @@ export function MessageBubble({
 
         {message.widget === 'formula-comparison' && (
           <FormulaComparison data={message.widgetData as QuoteResult} />
+        )}
+
+        {!message.consumed && message.widget === 'needs-tuner' && (
+          <NeedsTuner
+            data={message.widgetData as NeedsTunerData}
+            onApply={(needs) => onNeedsTuner(message.id, needs)}
+          />
         )}
 
         {!message.consumed && message.widget === 'cta-card' && (
