@@ -1,12 +1,17 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import daLogoSrc from '../assets/da-logo.png';
 
-// ─── STT hook (self-contained, no props needed) ───────────────────────────────
+// ─── STT hook ─────────────────────────────────────────────────────────────────
 
-function useSTT(onResult: (text: string) => void, onStop?: () => void) {
-  const [isListening, setIsListening]   = useState(false);
-  const [supported, setSupported]       = useState(false);
-  const recognitionRef = useRef<any>(null);
+function useSTT(
+  onInterim: (text: string) => void,
+  onFinal:   (text: string) => void,
+) {
+  const [isListening, setIsListening] = useState(false);
+  const [supported, setSupported]     = useState(false);
+  const [sttError, setSttError]       = useState<string | null>(null);
+  const recognitionRef  = useRef<any>(null);
+  const transcriptRef   = useRef('');
 
   useEffect(() => {
     setSupported(
@@ -15,50 +20,80 @@ function useSTT(onResult: (text: string) => void, onStop?: () => void) {
   }, []);
 
   function toggle() {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      return;
-    }
+    setSttError(null);
+    if (isListening) { recognitionRef.current?.stop(); return; }
+
     const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
     if (!SR) return;
 
+    transcriptRef.current = '';
     const rec = new SR();
-    rec.lang              = 'fr-FR';
-    rec.continuous        = false;
-    rec.interimResults    = true;
+    rec.lang           = 'fr-FR';
+    rec.continuous     = false;   // auto-stops after a pause
+    rec.interimResults = true;
 
     rec.onresult = (e: any) => {
-      const transcript = Array.from(e.results as any[])
-        .map((r: any) => r[0].transcript)
-        .join('');
-      onResult(transcript);
+      // Rebuild full transcript from all result segments
+      let t = '';
+      for (let i = 0; i < e.results.length; i++) {
+        t += e.results[i][0].transcript;
+      }
+      transcriptRef.current = t;
+      onInterim(t);
     };
-    rec.onend   = () => { setIsListening(false); onStop?.(); };
-    rec.onerror = () => { setIsListening(false); };
+
+    rec.onerror = (e: any) => {
+      setIsListening(false);
+      if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+        setSttError('Microphone non autorisé — vérifiez les permissions du navigateur.');
+      }
+    };
+
+    // onend fires after continuous=false auto-stops → trigger submit
+    rec.onend = () => {
+      setIsListening(false);
+      const final = transcriptRef.current.trim();
+      transcriptRef.current = '';
+      if (final) onFinal(final);
+    };
 
     rec.start();
     recognitionRef.current = rec;
     setIsListening(true);
   }
 
-  return { supported, isListening, toggle };
+  return { supported, isListening, sttError, toggle };
 }
 
 // ─── component ───────────────────────────────────────────────────────────────
 
 interface Props {
-  disabled:    boolean;
-  placeholder: string;
-  error:       string | null;
-  onSubmit:    (value: string) => void;
+  disabled:       boolean;
+  placeholder:    string;
+  error:          string | null;
+  onSubmit:       (value: string) => void;
+  voiceMode:      boolean;
+  isSpeaking:     boolean;
+  onToggleVoice:  () => void;
 }
 
-export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
+export function InputBar({
+  disabled, placeholder, error, onSubmit,
+  voiceMode, isSpeaking, onToggleVoice,
+}: Props) {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const { supported: sttSupported, isListening, toggle: toggleSTT } = useSTT(
-    (transcript) => setText(transcript),
+  // onFinal: auto-submit in voice mode, else just keep text in field
+  const { supported: sttSupported, isListening, sttError, toggle: toggleSTT } = useSTT(
+    (interim) => setText(interim),
+    (final)   => {
+      setText(final);
+      if (voiceMode && !disabled) {
+        onSubmit(final);
+        setText('');
+      }
+    },
   );
 
   useEffect(() => {
@@ -85,13 +120,14 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
   }
 
   const canSend = !disabled && !!text.trim();
+  const displayError = error ?? sttError;
 
   return (
     <div className="bg-surface pt-3 pb-4 px-4">
       <div className="max-w-2xl mx-auto">
-        {error && (
+        {displayError && (
           <div className="mb-2 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-            {error}
+            {displayError}
           </div>
         )}
 
@@ -99,24 +135,26 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
           rounded-3xl border bg-white transition-all
           ${isListening
             ? 'border-red-300 shadow-md shadow-red-100'
-            : disabled
-              ? 'border-border opacity-60'
-              : 'border-border shadow-sm focus-within:border-gray-300 focus-within:shadow-md'
+            : voiceMode && isSpeaking
+              ? 'border-da-blue/40 shadow-md shadow-da-blue/10'
+              : disabled
+                ? 'border-border opacity-60'
+                : 'border-border shadow-sm focus-within:border-gray-300 focus-within:shadow-md'
           }
         `}>
-          {/* Textarea */}
+          {/* Textarea — never disabled during STT so transcript can appear */}
           <div className="px-4 pt-3.5 pb-1">
             <textarea
               ref={textareaRef}
               value={text}
               onChange={e => setText(e.target.value)}
               onKeyDown={onKey}
-              disabled={disabled}
+              disabled={disabled && !isListening}
               placeholder={
                 isListening
                   ? '🎙 Je vous écoute…'
-                  : disabled
-                    ? 'En attente de votre sélection…'
+                  : isSpeaking
+                    ? '🔊 Lecture en cours…'
                     : (placeholder || 'Poser une question')
               }
               rows={1}
@@ -141,31 +179,63 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
             </button>
 
             {/* Brand chip */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-elevated text-sm text-gray-700 select-none">
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-elevated select-none">
               <img src={daLogoSrc} alt="DA" width={16} height={16} style={{ borderRadius: 3, objectFit: 'contain' }} />
-              <span className="font-medium text-[13px]">Direct Assurance</span>
+              <span className="font-medium text-[13px] text-gray-700">Direct Assurance</span>
             </div>
 
             <div className="flex-1" />
 
-            {/* Mic / STT button */}
+            {/* Voice mode toggle */}
+            <button
+              onClick={onToggleVoice}
+              title={voiceMode ? 'Désactiver le mode vocal' : 'Activer le mode vocal (lecture des réponses)'}
+              className={`
+                relative flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[12px] font-medium
+                border transition-all
+                ${voiceMode
+                  ? 'bg-da-blue text-white border-da-blue'
+                  : 'text-muted border-border hover:border-gray-400 hover:text-gray-700 bg-white'
+                }
+              `}
+            >
+              {isSpeaking && (
+                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white" />
+              )}
+              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9H4a1 1 0 00-1 1v4a1 1 0 001 1h2l4 4V5L6 9z" />
+                {voiceMode ? (
+                  <>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 010 12.728" />
+                  </>
+                ) : (
+                  <>
+                    <line x1="23" y1="9" x2="17" y2="15" strokeLinecap="round" />
+                    <line x1="17" y1="9" x2="23" y2="15" strokeLinecap="round" />
+                  </>
+                )}
+              </svg>
+              {voiceMode ? (isSpeaking ? 'Écoute…' : 'Vocal') : 'Vocal'}
+            </button>
+
+            {/* Mic / STT — NEVER disabled so dictation is always available */}
             {sttSupported && (
               <button
                 onClick={toggleSTT}
-                disabled={disabled && !isListening}
-                title={isListening ? 'Arrêter la dictée' : 'Dicter ma réponse'}
+                title={isListening ? 'Arrêter la dictée' : 'Dicter ma réponse (fr)'}
                 className={`
                   relative w-8 h-8 rounded-full flex items-center justify-center transition-all
                   ${isListening
                     ? 'bg-red-500 text-white shadow-md shadow-red-200'
-                    : 'text-muted hover:text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed'
+                    : 'text-muted hover:text-gray-700 hover:bg-gray-100'
                   }
                 `}
               >
                 {isListening && (
-                  <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-60" />
+                  <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-50" />
                 )}
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isListening ? 2 : 1.8}>
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isListening ? 2.2 : 1.8}>
                   <path strokeLinecap="round" strokeLinejoin="round"
                     d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
                   <path strokeLinecap="round" strokeLinejoin="round"
@@ -174,7 +244,7 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
               </button>
             )}
 
-            {/* Send button */}
+            {/* Send */}
             <button
               onClick={submit}
               disabled={!canSend}

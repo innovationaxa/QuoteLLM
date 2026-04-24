@@ -32,12 +32,11 @@ export default function App() {
   const bottomRef    = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
 
-  // Auto-scroll
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  // TTS — speak new bot messages when voice mode is active
+  // Auto-speak new bot messages in voice mode
   useEffect(() => {
     const count = messages.length;
     if (count > prevCountRef.current && voiceMode) {
@@ -49,10 +48,7 @@ export default function App() {
     prevCountRef.current = count;
   }, [messages, voiceMode, speak]);
 
-  // Stop TTS when voice mode is turned off
-  useEffect(() => {
-    if (!voiceMode) stop();
-  }, [voiceMode, stop]);
+  useEffect(() => { if (!voiceMode) stop(); }, [voiceMode, stop]);
 
   const phaseIndex = getPhaseIndex(currentStep);
 
@@ -61,7 +57,7 @@ export default function App() {
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Stepper + voice toggle */}
+        {/* Stepper */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-border shrink-0 bg-surface">
           <div className="flex items-center gap-1 text-xs">
             {PHASES.map((phase, i) => (
@@ -78,44 +74,7 @@ export default function App() {
               </div>
             ))}
           </div>
-
-          <div className="flex items-center gap-2">
-            {/* Voice mode toggle */}
-            <button
-              onClick={toggleVoiceMode}
-              title={voiceMode ? 'Désactiver le mode vocal' : 'Activer le mode vocal'}
-              className={`
-                relative flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium
-                transition-all border
-                ${voiceMode
-                  ? 'bg-da-blue text-white border-da-blue shadow-sm'
-                  : 'bg-white text-muted border-border hover:border-gray-400 hover:text-gray-700'
-                }
-              `}
-            >
-              {isSpeaking && (
-                <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border border-white" />
-              )}
-              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                {voiceMode ? (
-                  <>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M17.95 6.05a8 8 0 010 11.9" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 9H4a1 1 0 00-1 1v4a1 1 0 001 1h2l4 4V5L6 9z" />
-                  </>
-                ) : (
-                  <>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 9H4a1 1 0 00-1 1v4a1 1 0 001 1h2l4 4V5L6 9z" />
-                    <line x1="23" y1="9" x2="17" y2="15" strokeLinecap="round" />
-                    <line x1="17" y1="9" x2="23" y2="15" strokeLinecap="round" />
-                  </>
-                )}
-              </svg>
-              {voiceMode ? (isSpeaking ? 'En cours…' : 'Vocal ON') : 'Mode vocal'}
-            </button>
-
-            <span className="text-xs text-muted">DA Assistant · Santé</span>
-          </div>
+          <span className="text-xs text-muted">DA Assistant · Santé</span>
         </div>
 
         {/* Messages */}
@@ -146,6 +105,9 @@ export default function App() {
           placeholder={inputPlaceholder}
           error={validationError}
           onSubmit={submitText}
+          voiceMode={voiceMode}
+          isSpeaking={isSpeaking}
+          onToggleVoice={toggleVoiceMode}
         />
       </div>
     </div>
