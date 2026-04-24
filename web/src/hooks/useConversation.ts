@@ -436,6 +436,15 @@ export function useConversation() {
     withTyping(900, () => {
       const quote = calculateQuoteFromTuner(answersRef.current, needs);
       bot('Voici les formules recalculées selon tes nouveaux besoins :', 'formula-comparison', quote as unknown as QuoteResult);
+      later(() => {
+        withTyping(600, () => {
+          bot(
+            '👉 **Direct Assurance** (groupe AXA) s\'occupe de tout — souscription sur un site sécurisé, avec une équipe humaine si tu as des questions.',
+            'cta-card',
+          );
+          dispatch({ type: 'SET_STEP', payload: 'contact' });
+        });
+      }, 400);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
