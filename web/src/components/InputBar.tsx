@@ -1,6 +1,51 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import daLogoSrc from '../assets/da-logo.png';
 
+// ─── STT hook (self-contained, no props needed) ───────────────────────────────
+
+function useSTT(onResult: (text: string) => void, onStop?: () => void) {
+  const [isListening, setIsListening]   = useState(false);
+  const [supported, setSupported]       = useState(false);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    setSupported(
+      !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition,
+    );
+  }, []);
+
+  function toggle() {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+    if (!SR) return;
+
+    const rec = new SR();
+    rec.lang              = 'fr-FR';
+    rec.continuous        = false;
+    rec.interimResults    = true;
+
+    rec.onresult = (e: any) => {
+      const transcript = Array.from(e.results as any[])
+        .map((r: any) => r[0].transcript)
+        .join('');
+      onResult(transcript);
+    };
+    rec.onend   = () => { setIsListening(false); onStop?.(); };
+    rec.onerror = () => { setIsListening(false); };
+
+    rec.start();
+    recognitionRef.current = rec;
+    setIsListening(true);
+  }
+
+  return { supported, isListening, toggle };
+}
+
+// ─── component ───────────────────────────────────────────────────────────────
+
 interface Props {
   disabled:    boolean;
   placeholder: string;
@@ -12,9 +57,13 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const { supported: sttSupported, isListening, toggle: toggleSTT } = useSTT(
+    (transcript) => setText(transcript),
+  );
+
   useEffect(() => {
-    if (!disabled) textareaRef.current?.focus();
-  }, [disabled]);
+    if (!disabled && !isListening) textareaRef.current?.focus();
+  }, [disabled, isListening]);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -32,10 +81,7 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
   }
 
   function onKey(e: KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      submit();
-    }
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
   }
 
   const canSend = !disabled && !!text.trim();
@@ -49,15 +95,16 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
           </div>
         )}
 
-        {/* ChatGPT-style prompt container */}
         <div className={`
-          rounded-3xl border bg-white transition-colors
-          ${disabled
-            ? 'border-border opacity-60'
-            : 'border-border shadow-sm focus-within:border-gray-300 focus-within:shadow-md'
+          rounded-3xl border bg-white transition-all
+          ${isListening
+            ? 'border-red-300 shadow-md shadow-red-100'
+            : disabled
+              ? 'border-border opacity-60'
+              : 'border-border shadow-sm focus-within:border-gray-300 focus-within:shadow-md'
           }
         `}>
-          {/* Textarea row */}
+          {/* Textarea */}
           <div className="px-4 pt-3.5 pb-1">
             <textarea
               ref={textareaRef}
@@ -65,19 +112,24 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
               onChange={e => setText(e.target.value)}
               onKeyDown={onKey}
               disabled={disabled}
-              placeholder={disabled ? 'En attente de votre sélection…' : (placeholder || 'Poser une question')}
+              placeholder={
+                isListening
+                  ? '🎙 Je vous écoute…'
+                  : disabled
+                    ? 'En attente de votre sélection…'
+                    : (placeholder || 'Poser une question')
+              }
               rows={1}
               className="
                 w-full bg-transparent text-gray-900 text-[15px] resize-none outline-none
-                placeholder:text-muted leading-relaxed
-                disabled:cursor-not-allowed
+                placeholder:text-muted leading-relaxed disabled:cursor-not-allowed
               "
             />
           </div>
 
           {/* Bottom action bar */}
           <div className="flex items-center gap-2 px-3 pb-3 pt-1">
-            {/* Attachment button */}
+            {/* Attachment */}
             <button
               disabled={disabled}
               className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
@@ -94,22 +146,33 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
               <span className="font-medium text-[13px]">Direct Assurance</span>
             </div>
 
-            {/* Spacer */}
             <div className="flex-1" />
 
-            {/* Mic button */}
-            <button
-              disabled={disabled}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Microphone"
-            >
-              <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                <path strokeLinecap="round" strokeLinejoin="round"
-                  d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
-              </svg>
-            </button>
+            {/* Mic / STT button */}
+            {sttSupported && (
+              <button
+                onClick={toggleSTT}
+                disabled={disabled && !isListening}
+                title={isListening ? 'Arrêter la dictée' : 'Dicter ma réponse'}
+                className={`
+                  relative w-8 h-8 rounded-full flex items-center justify-center transition-all
+                  ${isListening
+                    ? 'bg-red-500 text-white shadow-md shadow-red-200'
+                    : 'text-muted hover:text-gray-700 hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed'
+                  }
+                `}
+              >
+                {isListening && (
+                  <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-60" />
+                )}
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isListening ? 2 : 1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path strokeLinecap="round" strokeLinejoin="round"
+                    d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+                </svg>
+              </button>
+            )}
 
             {/* Send button */}
             <button
@@ -125,7 +188,6 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
               `}
             >
               {canSend ? (
-                /* waveform bars when active */
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
                   <rect x="3"  y="9"  width="3" height="6"  rx="1.5" />
                   <rect x="8"  y="5"  width="3" height="14" rx="1.5" />
@@ -133,7 +195,6 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
                   <rect x="18" y="10" width="3" height="4"  rx="1.5" />
                 </svg>
               ) : (
-                /* arrow when inactive */
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
                 </svg>
