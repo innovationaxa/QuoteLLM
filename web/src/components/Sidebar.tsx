@@ -1,22 +1,5 @@
 import { useState } from 'react';
-
-// Direct Assurances logo (simplified SVG shield)
-function DALogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none">
-      <path
-        d="M16 2L4 7v9c0 7.18 5.14 13.9 12 15.5C22.86 29.9 28 23.18 28 16V7L16 2z"
-        fill="#00008F"
-      />
-      <path
-        d="M16 8l-7 3v5.5c0 4.3 3.08 8.33 7 9.3 3.92-.97 7-5 7-9.3V11L16 8z"
-        fill="#fff"
-        fillOpacity={0.25}
-      />
-      <text x="16" y="21" textAnchor="middle" fontSize="11" fontWeight="700" fill="#fff" fontFamily="sans-serif">DA</text>
-    </svg>
-  );
-}
+import { DALogo } from './DALogo';
 
 export function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);

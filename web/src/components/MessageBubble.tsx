@@ -6,6 +6,7 @@ import { FormulaComparison }    from './FormulaComparison';
 import { QuickEstimateCard }    from './QuickEstimateCard';
 import { DocumentUploadCard }   from './DocumentUploadCard';
 import { CTACard }              from './CTACard';
+import { DALogo }               from './DALogo';
 
 // Minimal markdown: **bold** and \n line breaks
 function renderText(text: string) {
@@ -60,8 +61,8 @@ export function MessageBubble({
 
   return (
     <div className="flex items-start gap-4 py-3 animate-fade-up">
-      <div className="shrink-0 w-8 h-8 rounded-full bg-da-blue flex items-center justify-center text-xs text-white font-bold mt-0.5">
-        DA
+      <div className="shrink-0 mt-0.5">
+        <DALogo size={32} />
       </div>
 
       <div className="flex-1 min-w-0">
