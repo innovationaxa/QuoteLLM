@@ -1,7 +1,10 @@
 import { useReducer, useEffect, useRef, useCallback } from 'react';
-import { ChatMessage, Answers, QuoteResult, RecapData, QuickReplyOption } from '../types';
-import { CONSENT_TEXT, getNextQuestionId, getQuestion, getSectionOf } from '../data/questionnaire';
-import { calculateQuote, buildRecapData } from '../data/pricing';
+import { ChatMessage, Answers, QuoteResult, QuickEstimateData, QuickReplyOption } from '../types';
+import {
+  CONSENT_TEXT, getNextQuestionId, getQuestion, getSectionOf,
+  getIntentionContextMessage,
+} from '../data/questionnaire';
+import { calculateQuote, buildQuickEstimate } from '../data/pricing';
 
 // ─── state ────────────────────────────────────────────────────────────────────
 
@@ -15,12 +18,12 @@ interface State {
 }
 
 type Action =
-  | { type: 'ADD_MSG';    payload: ChatMessage }
-  | { type: 'TYPING';     payload: boolean }
-  | { type: 'SET_INPUT';  payload: { disabled: boolean; placeholder?: string } }
-  | { type: 'SET_ERROR';  payload: string | null }
-  | { type: 'SET_STEP';   payload: string }
-  | { type: 'CONSUME';    payload: string };
+  | { type: 'ADD_MSG';   payload: ChatMessage }
+  | { type: 'TYPING';    payload: boolean }
+  | { type: 'SET_INPUT'; payload: { disabled: boolean; placeholder?: string } }
+  | { type: 'SET_ERROR'; payload: string | null }
+  | { type: 'SET_STEP';  payload: string }
+  | { type: 'CONSUME';   payload: string };
 
 const INIT: State = {
   messages: [], isTyping: false, inputDisabled: true,
@@ -58,9 +61,11 @@ function makeMsg(
 
 export function useConversation() {
   const [state, dispatch] = useReducer(reducer, INIT);
-  const answersRef = useRef<Answers>({});
-  const prevSectionRef = useRef<'situation' | 'besoins' | null>(null);
-  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const answersRef             = useRef<Answers>({});
+  const intentionMsgShownRef   = useRef(false);
+  const quickEstimateShownRef  = useRef(false);
+  const prevSectionRef         = useRef<'context' | 'refinement' | 'besoins' | null>(null);
+  const timers                 = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const later = (fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms);
@@ -69,14 +74,17 @@ export function useConversation() {
 
   useEffect(() => () => timers.current.forEach(clearTimeout), []);
 
-  // ── core primitives ───────────────────────────────────────────────────────
-
   function withTyping(ms: number, fn: () => void) {
     dispatch({ type: 'TYPING', payload: true });
     later(() => { dispatch({ type: 'TYPING', payload: false }); fn(); }, ms);
   }
 
-  function bot(content: string, widget?: ChatMessage['widget'], widgetData?: ChatMessage['widgetData'], questionId?: string) {
+  function bot(
+    content: string,
+    widget?: ChatMessage['widget'],
+    widgetData?: ChatMessage['widgetData'],
+    questionId?: string,
+  ) {
     dispatch({ type: 'ADD_MSG', payload: makeMsg('assistant', content, widget, widgetData, questionId) });
   }
 
@@ -89,17 +97,86 @@ export function useConversation() {
   const advance = useCallback((answers: Answers) => {
     const nextId = getNextQuestionId(answers);
 
-    // ── All questions done → show recap ──────────────────────────────────
+    // ── INTERCEPT 1: message contextuel après intention ───────────────────
+    if (answers.intention && !answers.currently_insured && !intentionMsgShownRef.current) {
+      intentionMsgShownRef.current = true;
+      withTyping(600, () => {
+        bot(getIntentionContextMessage(answers.intention!));
+        later(() => {
+          withTyping(700, () => {
+            const q = getQuestion('currently_insured');
+            bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[], 'currently_insured');
+            dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
+            dispatch({ type: 'SET_STEP', payload: 'currently_insured' });
+          });
+        }, 600);
+      });
+      return;
+    }
+
+    // ── INTERCEPT 2: premier aperçu + transition vers profil ──────────────
+    const contextComplete = !!(
+      answers.intention &&
+      answers.currently_insured &&
+      (answers.currently_insured !== 'yes' || answers.current_price)
+    );
+
+    if (contextComplete && !quickEstimateShownRef.current) {
+      quickEstimateShownRef.current = true;
+      dispatch({ type: 'SET_STEP', payload: 'estimate' });
+
+      withTyping(800, () => {
+        const estimate = buildQuickEstimate(answers);
+        const ctxMsg = answers.currently_insured !== 'yes'
+          ? 'Voici un premier aperçu pour ton profil :'
+          : 'Super. Voici un **premier aperçu** basé sur ce que tu m\'as dit :';
+        bot(ctxMsg, 'quick-estimate', estimate as unknown as QuickEstimateData);
+
+        later(() => {
+          withTyping(700, () => {
+            bot('Pour affiner et te faire une **comparaison précise**, j\'ai besoin de quelques infos rapides sur ton profil.');
+            later(() => {
+              bot('', 'section-divider', { label: 'Ton profil' });
+              later(() => {
+                withTyping(700, () => {
+                  const q = getQuestion(nextId!); // date_of_birth
+                  bot(q.prompt);
+                  dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder: q.placeholder ?? '' } });
+                  dispatch({ type: 'SET_STEP', payload: nextId! });
+                });
+              }, 300);
+            }, 200);
+          });
+        }, 1800);
+      });
+      return;
+    }
+
+    // ── Toutes les questions répondues → comparaison ──────────────────────
     if (!nextId) {
-      dispatch({ type: 'SET_STEP', payload: 'recap' });
+      dispatch({ type: 'SET_STEP', payload: 'calculating' });
       dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
       withTyping(800, () => {
-        const recap = buildRecapData(answers);
-        bot(
-          'Voici un récapitulatif de votre situation. Tout est correct ?',
-          'recap-confirm',
-          recap as unknown as RecapData,
-        );
+        bot('Parfait ! Je prépare ta **comparaison personnalisée**…', 'calculating');
+        later(() => {
+          const quote = calculateQuote(answersRef.current);
+          dispatch({ type: 'SET_STEP', payload: 'result' });
+          withTyping(1500, () => {
+            const compMsg = answers.current_price
+              ? 'Voici ta **comparaison** avec ta mutuelle actuelle :'
+              : 'Voici les **3 formules** que nous te proposons :';
+            bot(compMsg, 'formula-comparison', quote as unknown as QuoteResult);
+            later(() => {
+              withTyping(800, () => {
+                bot(
+                  '👉 **Direct Assurance** (groupe AXA) s\'occupe de tout — souscription sur un site sécurisé, avec une équipe humaine si tu as des questions. C\'est nous qui gérons ton contrat, pas ChatGPT.',
+                  'cta-card',
+                );
+                dispatch({ type: 'SET_STEP', payload: 'contact' });
+              });
+            }, 600);
+          });
+        }, 2200);
       });
       return;
     }
@@ -107,36 +184,33 @@ export function useConversation() {
     const section = getSectionOf(nextId);
     dispatch({ type: 'SET_STEP', payload: nextId });
 
-    // ── Section transition: situation → besoins ──────────────────────────
-    if (section === 'besoins' && prevSectionRef.current === 'situation') {
+    // ── Transition refinement → besoins ───────────────────────────────────
+    if (section === 'besoins' && prevSectionRef.current === 'refinement') {
       prevSectionRef.current = 'besoins';
       withTyping(600, () => {
-        bot(
-          'Parfait, votre situation est complète !\n\nPassons maintenant à vos **besoins en santé** pour trouver la formule la plus adaptée.',
-          'section-divider',
-          { label: 'Vos besoins' } as { label: string },
-        );
+        bot('Bien noté 👍\n\nDernière étape : tes **priorités de remboursement**.');
         later(() => {
-          const q = getQuestion(nextId);
-          withTyping(700, () => {
-            if (q.type === 'choice') {
+          bot('', 'section-divider', { label: 'Tes besoins' });
+          later(() => {
+            withTyping(700, () => {
+              const q = getQuestion(nextId);
               bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[], nextId);
               dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
-            } else {
-              bot(q.prompt);
-              dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder: q.placeholder ?? 'Votre réponse…' } });
-            }
-          });
-        }, 800);
+            });
+          }, 300);
+        }, 200);
       });
       return;
     }
 
-    if (section === 'situation' && prevSectionRef.current === null) {
-      prevSectionRef.current = 'situation';
+    if (section === 'refinement' && prevSectionRef.current !== 'refinement' && prevSectionRef.current !== 'besoins') {
+      prevSectionRef.current = 'refinement';
+    }
+    if (section === 'context' && prevSectionRef.current === null) {
+      prevSectionRef.current = 'context';
     }
 
-    // ── Regular next question ─────────────────────────────────────────────
+    // ── Question suivante standard ────────────────────────────────────────
     withTyping(700, () => {
       const q = getQuestion(nextId);
       if (q.type === 'choice') {
@@ -157,41 +231,37 @@ export function useConversation() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ─── answer helpers ───────────────────────────────────────────────────────
+  // ── enregistrement des réponses ───────────────────────────────────────────
 
   function recordAnswer(id: string, value: string) {
-    if (id.startsWith('child_')) {
-      const idx = parseInt(id.split('_')[1]);
-      const births = [...(answersRef.current.children_births ?? [])];
-      births[idx] = value;
-      answersRef.current = { ...answersRef.current, children_births: births };
-    } else if (id === 'children_count') {
-      answersRef.current = { ...answersRef.current, children_count: parseInt(value) };
-    } else {
-      answersRef.current = { ...answersRef.current, [id]: value };
-    }
+    answersRef.current = { ...answersRef.current, [id]: value };
   }
 
-  // ─── public API ───────────────────────────────────────────────────────────
+  // ── API publique ──────────────────────────────────────────────────────────
 
   const acceptConsent = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
-    me("J'accepte et je souhaite obtenir un devis.");
+    me("C'est parti, on y va !");
     advance(answersRef.current);
   }, [advance]);
 
   const declineConsent = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
-    me('Je refuse.');
-    withTyping(800, () => bot("Je comprends. Revenez quand vous le souhaitez. Bonne journée !"));
+    me('Non merci.');
+    withTyping(800, () => bot("Pas de problème. Reviens quand tu veux. Bonne journée ! 👋"));
     dispatch({ type: 'SET_STEP', payload: 'done' });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const submitText = useCallback((value: string) => {
     const step = state.currentStep;
-    const q = getQuestion(step);
-    const err = q.validate?.(value.trim()) ?? null;
+    let err: string | null = null;
+    try {
+      const q = getQuestion(step);
+      err = q.validate?.(value.trim()) ?? null;
+    } catch {
+      return;
+    }
     if (err) { dispatch({ type: 'SET_ERROR', payload: err }); return; }
     dispatch({ type: 'SET_ERROR', payload: null });
     dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
@@ -208,47 +278,21 @@ export function useConversation() {
     advance({ ...answersRef.current });
   }, [advance]);
 
-  const confirmRecap = useCallback((msgId: string) => {
+  const continueToBuy = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
-    me('Oui, tout est correct, calculez mon devis !');
-    dispatch({ type: 'SET_STEP', payload: 'calculating' });
+    me('Je souhaite continuer sur Direct Assurance.');
     withTyping(800, () => {
-      bot('Parfait ! Je calcule vos tarifs indicatifs…', 'calculating');
-      later(() => {
-        const quote = calculateQuote(answersRef.current);
-        dispatch({ type: 'SET_STEP', payload: 'result' });
-        withTyping(1500, () => {
-          bot('Voici les **3 formules** que nous vous proposons :', 'formula-comparison', quote as unknown as QuoteResult);
-          later(() => {
-            withTyping(700, () => {
-              bot(
-                'Souhaitez-vous être **recontacté(e) par un conseiller** pour finaliser votre souscription ?',
-                'contact-cta',
-              );
-              dispatch({ type: 'SET_STEP', payload: 'contact' });
-            });
-          }, 600);
-        });
-      }, 2200);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const requestContact = useCallback((msgId: string) => {
-    dispatch({ type: 'CONSUME', payload: msgId });
-    me('Oui, je souhaite être recontacté(e).');
-    withTyping(800, () => {
-      bot('Parfait ! Un conseiller Direct Assurances vous contactera très prochainement.\n\n*Ce devis est indicatif et non contractuel. La souscription et la validation finale restent nécessaires.*');
+      bot('Parfait ! 🎉 Dans un vrai parcours, tu serais redirigé(e) vers le site sécurisé **directassurances.fr** avec tes informations pré-remplies.\n\n*Ce devis est indicatif et non contractuel.*');
       dispatch({ type: 'SET_STEP', payload: 'done' });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const dismissContact = useCallback((msgId: string) => {
+  const requestCallback = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
-    me("Non merci, pas pour l'instant.");
+    me('Je préfère être rappelé(e) par un conseiller.');
     withTyping(800, () => {
-      bot("Bien sûr. Votre devis reste disponible dans cette conversation. N'hésitez pas à revenir si vous avez des questions !");
+      bot('Un conseiller Direct Assurance te contactera très prochainement. 📞\n\n*Ce devis est indicatif et non contractuel. La souscription finale se fait avec l\'équipe Direct Assurance.*');
       dispatch({ type: 'SET_STEP', payload: 'done' });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -262,6 +306,6 @@ export function useConversation() {
     inputPlaceholder: state.inputPlaceholder,
     validationError:  state.validationError,
     acceptConsent, declineConsent, submitText, selectOption,
-    confirmRecap, requestContact, dismissContact,
+    continueToBuy, requestCallback,
   };
 }

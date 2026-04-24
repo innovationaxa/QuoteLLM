@@ -5,11 +5,14 @@ import { TypingIndicator }  from './components/TypingIndicator';
 import { InputBar }         from './components/InputBar';
 import { useConversation }  from './hooks/useConversation';
 
-const PHASES = ['Ma situation', 'Mes besoins', 'Notre offre'];
+const PHASES = ['Mon contexte', 'Mon profil', 'Ma comparaison'];
 
 function getPhaseIndex(step: string): number {
-  if (['result', 'contact', 'done'].includes(step))                    return 2;
-  if (['doctors_need','hospitalization_need','optics_need','dental_need','recap'].includes(step)) return 1;
+  if (['result', 'contact', 'done'].includes(step)) return 2;
+  if ([
+    'estimate', 'date_of_birth', 'family_composition', 'regime',
+    'hospitalization_need', 'optics_need', 'dental_need', 'calculating',
+  ].includes(step)) return 1;
   return 0;
 }
 
@@ -18,7 +21,7 @@ export default function App() {
     messages, currentStep, isTyping,
     inputDisabled, inputPlaceholder, validationError,
     acceptConsent, declineConsent, submitText, selectOption,
-    confirmRecap, requestContact, dismissContact,
+    continueToBuy, requestCallback,
   } = useConversation();
 
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -34,13 +37,17 @@ export default function App() {
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Header with DA-style stepper */}
+        {/* Stepper */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-border shrink-0 bg-surface">
           <div className="flex items-center gap-1 text-xs">
             {PHASES.map((phase, i) => (
               <div key={phase} className="flex items-center gap-1">
                 {i > 0 && <span className="text-border mx-1">›</span>}
-                <span className={i === phaseIndex ? 'text-gray-900 font-medium' : i < phaseIndex ? 'text-da-blue' : 'text-muted'}>
+                <span className={
+                  i === phaseIndex ? 'text-gray-900 font-medium' :
+                  i < phaseIndex  ? 'text-da-blue' :
+                  'text-muted'
+                }>
                   {phase}
                   {i < phaseIndex && <span className="ml-1 text-da-blue">✓</span>}
                 </span>
@@ -54,16 +61,15 @@ export default function App() {
         <div className="flex-1 overflow-y-auto px-4 bg-surface">
           <div className="max-w-2xl mx-auto py-6 flex flex-col">
             {messages.map(msg => (
-                <MessageBubble
-                  key={msg.id}
-                  message={msg}
-                  onAcceptConsent={acceptConsent}
-                  onDeclineConsent={declineConsent}
-                  onSelectOption={selectOption}
-                  onConfirmRecap={confirmRecap}
-                  onRequestContact={requestContact}
-                  onDismissContact={dismissContact}
-                />
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                onAcceptConsent={acceptConsent}
+                onDeclineConsent={declineConsent}
+                onSelectOption={selectOption}
+                onContinueToBuy={continueToBuy}
+                onRequestCallback={requestCallback}
+              />
             ))}
             {isTyping && <TypingIndicator />}
             <div ref={bottomRef} />
@@ -80,4 +86,3 @@ export default function App() {
     </div>
   );
 }
-

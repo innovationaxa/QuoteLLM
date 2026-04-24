@@ -1,10 +1,10 @@
-import { ChatMessage, QuickReplyOption, RecapData, QuoteResult } from '../types';
-import { ConsentCard }        from './ConsentCard';
-import { QuickReply }         from './QuickReply';
-import { CalculatingCard }    from './CalculatingCard';
-import { RecapCard }          from './RecapCard';
-import { FormulaComparison }  from './FormulaComparison';
-import { ContactCTA }         from './ContactCTA';
+import { ChatMessage, QuickReplyOption, QuoteResult, QuickEstimateData } from '../types';
+import { ConsentCard }       from './ConsentCard';
+import { QuickReply }        from './QuickReply';
+import { CalculatingCard }   from './CalculatingCard';
+import { FormulaComparison } from './FormulaComparison';
+import { QuickEstimateCard } from './QuickEstimateCard';
+import { CTACard }           from './CTACard';
 
 // Minimal markdown: **bold** and \n line breaks
 function renderText(text: string) {
@@ -22,15 +22,14 @@ interface Props {
   onAcceptConsent:   (id: string) => void;
   onDeclineConsent:  (id: string) => void;
   onSelectOption:    (msgId: string, questionId: string, value: string, label: string) => void;
-  onConfirmRecap:    (id: string) => void;
-  onRequestContact:  (id: string) => void;
-  onDismissContact:  (id: string) => void;
+  onContinueToBuy:   (id: string) => void;
+  onRequestCallback: (id: string) => void;
 }
 
 export function MessageBubble({
   message,
   onAcceptConsent, onDeclineConsent, onSelectOption,
-  onConfirmRecap, onRequestContact, onDismissContact,
+  onContinueToBuy, onRequestCallback,
 }: Props) {
   if (message.role === 'user') {
     return (
@@ -42,7 +41,6 @@ export function MessageBubble({
     );
   }
 
-  // Section divider — rendered as a standalone separator, not a full bubble
   if (message.widget === 'section-divider') {
     return (
       <div className="flex items-center gap-3 py-4 animate-fade-up">
@@ -84,21 +82,18 @@ export function MessageBubble({
 
         {message.widget === 'calculating' && <CalculatingCard />}
 
-        {!message.consumed && message.widget === 'recap-confirm' && (
-          <RecapCard
-            data={message.widgetData as RecapData}
-            onConfirm={() => onConfirmRecap(message.id)}
-          />
+        {message.widget === 'quick-estimate' && (
+          <QuickEstimateCard data={message.widgetData as QuickEstimateData} />
         )}
 
         {message.widget === 'formula-comparison' && (
           <FormulaComparison data={message.widgetData as QuoteResult} />
         )}
 
-        {!message.consumed && message.widget === 'contact-cta' && (
-          <ContactCTA
-            onAccept={()  => onRequestContact(message.id)}
-            onDecline={() => onDismissContact(message.id)}
+        {!message.consumed && message.widget === 'cta-card' && (
+          <CTACard
+            onContinue={() => onContinueToBuy(message.id)}
+            onCallback={() => onRequestCallback(message.id)}
           />
         )}
       </div>

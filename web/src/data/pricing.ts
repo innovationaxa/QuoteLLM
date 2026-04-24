@@ -1,45 +1,54 @@
-import { Answers, FormulaResult, QuoteResult, RecapData } from '../types';
+import { Answers, FormulaResult, QuoteResult, QuickEstimateData } from '../types';
 
 // ─── formula definitions ──────────────────────────────────────────────────────
 
-const FORMULA_CONFIG: Array<Omit<FormulaResult, 'monthlyPremium' | 'annualPremium' | 'recommended'>> = [
+const FORMULA_CONFIG: Array<Omit<FormulaResult, 'monthlyPremium' | 'annualPremium' | 'recommended' | 'monthlySaving'>> = [
   {
     id: 'essentielle', name: 'Essentielle', color: 'blue',
     tagline: 'Les garanties juste au cas où',
     coverage: {
-      soins:          'Soins courants jusqu\'à 100%',
-      hospitalisation:'Hospitalisation jusqu\'à 100%',
-      optique:        'Optique jusqu\'à 100%',
-      dentaire:       'Dentaire jusqu\'à 100%',
+      soins:           'Soins courants 100% BR',
+      hospitalisation: 'Hospitalisation 100% BR',
+      optique:         'Optique 100% (plafond SS)',
+      dentaire:        'Dentaire 100% BR',
     },
   },
   {
     id: 'essentielle_plus', name: 'Essentielle +', color: 'yellow',
-    tagline: "L'essentiel, lunettes et lentilles en plus",
+    tagline: "L'essentiel + bonne couverture optique",
     coverage: {
-      soins:          'Soins courants jusqu\'à 100%',
-      hospitalisation:'Hospitalisation jusqu\'à 100%',
-      optique:        'Optique jusqu\'à 200 €',
-      dentaire:       'Dentaire jusqu\'à 125%',
+      soins:           'Soins courants 100% BR',
+      hospitalisation: 'Hospitalisation 100% + chambre individuelle',
+      optique:         "Optique jusqu'à 200 €/an",
+      dentaire:        "Dentaire jusqu'à 125% BR",
     },
   },
   {
     id: 'equilibre', name: 'Équilibre', color: 'purple',
-    tagline: 'La formule douce et cocooning',
+    tagline: 'La formule complète et confortable',
     coverage: {
-      soins:          'Soins courants jusqu\'à 120%',
-      hospitalisation:'Hospitalisation jusqu\'à 120%',
-      optique:        'Optique jusqu\'à 200 €',
-      dentaire:       'Dentaire jusqu\'à 110%',
+      soins:           'Soins courants 120% BR',
+      hospitalisation: 'Hospitalisation 120% + clinique privée',
+      optique:         "Optique jusqu'à 300 €/an",
+      dentaire:        "Dentaire jusqu'à 150% BR",
     },
   },
 ];
 
-// Base monthly rates (adult, single, régime général, age 30, in €/month)
-const BASE: Record<string, number> = { essentielle: 30, essentielle_plus: 45, equilibre: 62 };
+const BASE: Record<string, number> = {
+  essentielle: 30, essentielle_plus: 45, equilibre: 62,
+};
 
 const REGIME_MULT: Record<string, number> = {
-  general: 1.0, independent: 1.15, agriculture: 0.95, student: 0.8, alsace_moselle: 0.9,
+  general: 1.0, independent: 1.15, agriculture: 0.95,
+  student: 0.8, alsace_moselle: 0.9, other: 1.0,
+};
+
+const FAMILY_MULT: Record<string, number> = {
+  single: 1.0,
+  couple: 1.85,
+  family: 2.15,
+  parent: 1.3,
 };
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
@@ -61,16 +70,14 @@ function personCost(base: number, dob: string, regime: string): number {
 
 function getRecommendedId(a: Answers): string {
   let score = 0;
-  if (a.doctors_need === 'intensive') score += 3;
-  else if (a.doctors_need === 'regular') score += 2;
-  if (a.hospitalization_need === 'premium') score += 3;
-  else if (a.hospitalization_need === 'comfort') score += 2;
-  if (a.optics_need === 'enhanced') score += 2;
-  else if (a.optics_need === 'standard') score += 1;
-  if (a.dental_need === 'orthodontics') score += 2;
-  else if (a.dental_need === 'prosthetics') score += 1;
-  if (score >= 8) return 'equilibre';
-  if (score >= 4) return 'essentielle_plus';
+  if (a.hospitalization_need === 'premium')       score += 3;
+  else if (a.hospitalization_need === 'comfort')  score += 2;
+  if (a.optics_need === 'enhanced')               score += 2;
+  else if (a.optics_need === 'standard')          score += 1;
+  if (a.dental_need === 'orthodontics')           score += 2;
+  else if (a.dental_need === 'prosthetics')       score += 1;
+  if (score >= 5) return 'equilibre';
+  if (score >= 2) return 'essentielle_plus';
   return 'essentielle';
 }
 
@@ -78,103 +85,63 @@ function buildRecommendationReason(recommendedId: string, a: Answers): string {
   const name = FORMULA_CONFIG.find(f => f.id === recommendedId)?.name ?? recommendedId;
   const reasons: string[] = [];
   if (a.hospitalization_need === 'premium' || a.hospitalization_need === 'comfort')
-    reasons.push('votre besoin en hospitalisation');
+    reasons.push('ton besoin en hospitalisation');
   if (a.optics_need === 'enhanced' || a.optics_need === 'standard')
-    reasons.push('votre couverture optique');
-  if (a.dental_need !== 'routine')
-    reasons.push('vos besoins dentaires');
+    reasons.push('ta couverture optique');
+  if (a.dental_need === 'orthodontics' || a.dental_need === 'prosthetics')
+    reasons.push('tes besoins dentaires');
   if (a.family_composition === 'family' || a.family_composition === 'parent')
-    reasons.push('la présence d\'enfants dans votre foyer');
+    reasons.push("la présence d'enfants dans ton foyer");
   const reasonStr = reasons.length
     ? `notamment pour ${reasons.slice(0, 2).join(' et ')}`
-    : 'en adéquation avec votre profil';
-  return `La formule **${name}** est recommandée pour vous, ${reasonStr}.`;
+    : 'en adéquation avec ton profil';
+  return `La formule **${name}** est recommandée pour toi, ${reasonStr}.`;
 }
 
-// ─── main export ─────────────────────────────────────────────────────────────
+function parsePrice(raw: string | undefined): number | undefined {
+  if (!raw) return undefined;
+  const n = parseFloat(raw.replace(',', '.').replace(/[€\s]/g, ''));
+  return isNaN(n) || n <= 0 ? undefined : Math.round(n);
+}
+
+// ─── exports ──────────────────────────────────────────────────────────────────
+
+export function buildQuickEstimate(answers: Answers): QuickEstimateData {
+  return {
+    currentMonthly: parsePrice(answers.current_price) ?? null,
+    rangeMin: 30,
+    rangeMax: 85,
+    notInsured: answers.currently_insured !== 'yes',
+  };
+}
 
 export function calculateQuote(a: Answers): QuoteResult {
   const recommendedId = getRecommendedId(a);
+  const dob    = a.date_of_birth ?? '01/01/1984';
+  const regime = a.regime        ?? 'general';
+  const famMult = FAMILY_MULT[a.family_composition ?? 'single'] ?? 1.0;
+  const currentMonthlyPrice = parsePrice(a.current_price);
 
   const formulas: FormulaResult[] = FORMULA_CONFIG.map(config => {
     const base = BASE[config.id];
-
-    let monthly = personCost(base, a.date_of_birth!, a.regime!);
-
-    if (a.family_composition === 'couple' || a.family_composition === 'family') {
-      monthly += personCost(base, a.partner_birth!, a.partner_regime!) * 0.9;
-    }
-
-    if (a.family_composition === 'family' || a.family_composition === 'parent') {
-      const count = Math.min(a.children_count ?? 0, 4);
-      for (let i = 0; i < count; i++) {
-        const dob = a.children_births?.[i];
-        monthly += dob ? personCost(base * 0.3, dob, 'general') : base * 0.3;
-      }
-    }
-
-    monthly = Math.round(monthly * 100) / 100;
-    return { ...config, monthlyPremium: monthly, annualPremium: Math.round(monthly * 12 * 100) / 100, recommended: config.id === recommendedId };
+    const monthly = Math.round(personCost(base, dob, regime) * famMult * 100) / 100;
+    const monthlySaving = currentMonthlyPrice !== undefined
+      ? Math.round((currentMonthlyPrice - monthly) * 10) / 10
+      : undefined;
+    return {
+      ...config,
+      monthlyPremium: monthly,
+      annualPremium: Math.round(monthly * 12 * 100) / 100,
+      recommended: config.id === recommendedId,
+      monthlySaving,
+    };
   });
 
-  return { formulas, recommendedId, recommendationReason: buildRecommendationReason(recommendedId, a) };
-}
-
-// ─── recap builder ────────────────────────────────────────────────────────────
-
-const FAMILY_LABELS: Record<string, string> = {
-  single: 'Individuel', couple: 'Couple', family: 'Famille', parent: 'Parent isolé',
-};
-const REGIME_LABELS: Record<string, string> = {
-  general: 'Régime général', independent: 'Travailleur indépendant',
-  agriculture: 'MSA – Agriculture', student: 'Étudiant', alsace_moselle: 'Alsace-Moselle',
-};
-const START_LABELS: Record<string, string> = {
-  next_month: '1er du mois prochain', in_3_months: 'Dans 3 mois', in_6_months: 'Dans 6 mois',
-};
-const INSURED_LABELS: Record<string, string> = {
-  yes_long: "Oui, depuis plus d'1 an", yes_short: "Oui, depuis moins d'1 an", no: 'Non',
-};
-const DOCTORS_LABELS: Record<string, string> = {
-  routine: 'Consultations de routine', regular: 'Suivi régulier spécialistes', intensive: 'Suivi intensif',
-};
-const HOSPI_LABELS: Record<string, string> = {
-  minimum: 'Couverture minimum', comfort: 'Chambre individuelle', premium: 'Couverture totale',
-};
-const OPTICS_LABELS: Record<string, string> = {
-  minimum: 'Pas de besoin particulier', standard: 'Lunettes tous les 2 ans', enhanced: 'Renouvellement fréquent',
-};
-const DENTAL_LABELS: Record<string, string> = {
-  routine: 'Visites de contrôle', prosthetics: 'Couronnes & prothèses', orthodontics: 'Orthodontie',
-};
-
-export function buildRecapData(a: Answers): RecapData {
-  const situation = [
-    { icon: '👥', label: 'Couverture',      value: FAMILY_LABELS[a.family_composition ?? ''] ?? '' },
-    { icon: '🗓️', label: 'Votre naissance', value: a.date_of_birth ?? '' },
-    { icon: '📍', label: 'Code postal',     value: a.postal_code ?? '' },
-    { icon: '⚕️', label: 'Régime SS',       value: REGIME_LABELS[a.regime ?? ''] ?? '' },
-  ];
-
-  if (a.family_composition === 'couple' || a.family_composition === 'family') {
-    situation.push({ icon: '👫', label: 'Naissance conjoint(e)', value: a.partner_birth ?? '' });
-  }
-
-  if ((a.family_composition === 'family' || a.family_composition === 'parent') && a.children_count) {
-    situation.push({ icon: '👧', label: 'Enfants couverts', value: `${a.children_count}` });
-  }
-
-  situation.push(
-    { icon: '🔒', label: 'Assuré actuellement', value: INSURED_LABELS[a.currently_insured ?? ''] ?? '' },
-    { icon: '📅', label: 'Démarrage souhaité',  value: START_LABELS[a.start_date ?? ''] ?? '' },
-  );
-
-  const besoins = [
-    { icon: '👨‍⚕️', label: 'Médecins',         value: DOCTORS_LABELS[a.doctors_need ?? ''] ?? '' },
-    { icon: '🏥',  label: 'Hospitalisation',   value: HOSPI_LABELS[a.hospitalization_need ?? ''] ?? '' },
-    { icon: '👓',  label: 'Optique',            value: OPTICS_LABELS[a.optics_need ?? ''] ?? '' },
-    { icon: '🦷',  label: 'Dentaire',           value: DENTAL_LABELS[a.dental_need ?? ''] ?? '' },
-  ];
-
-  return { situation, besoins };
+  return {
+    formulas,
+    recommendedId,
+    recommendationReason: buildRecommendationReason(recommendedId, a),
+    currentMonthlyPrice,
+    currentInsurer: a.current_insurer,
+  };
 }
