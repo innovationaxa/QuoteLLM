@@ -27,7 +27,7 @@ type Action =
 
 const INIT: State = {
   messages: [], isTyping: false, inputDisabled: true,
-  inputPlaceholder: '', validationError: null, currentStep: 'start',
+  inputPlaceholder: 'Poser une question…', validationError: null, currentStep: 'start',
 };
 
 function reducer(s: State, a: Action): State {
@@ -57,6 +57,12 @@ function makeMsg(
   return { id: uid(), role, content, timestamp: new Date(), widget, widgetData, questionId };
 }
 
+// Steps where free-text input is meaningless
+const INACTIVE_STEPS = ['calculating', 'done'];
+
+// Interactive widgets that can be bypassed by typing
+const BYPASSABLE_WIDGETS: ChatMessage['widget'][] = ['consent-card', 'quick-reply', 'document-upload'];
+
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export function useConversation() {
@@ -67,6 +73,8 @@ export function useConversation() {
   const quickEstimateShownRef  = useRef(false);
   const prevSectionRef         = useRef<'context' | 'refinement' | 'besoins' | null>(null);
   const timers                 = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Tracks the id of the last interactive widget so submitText can consume it
+  const pendingWidgetIdRef     = useRef<string | null>(null);
 
   const later = (fn: () => void, ms: number) => {
     const id = setTimeout(fn, ms);
@@ -86,11 +94,23 @@ export function useConversation() {
     widgetData?: ChatMessage['widgetData'],
     questionId?: string,
   ) {
-    dispatch({ type: 'ADD_MSG', payload: makeMsg('assistant', content, widget, widgetData, questionId) });
+    const msg = makeMsg('assistant', content, widget, widgetData, questionId);
+    dispatch({ type: 'ADD_MSG', payload: msg });
+    if (widget && (BYPASSABLE_WIDGETS as string[]).includes(widget)) {
+      pendingWidgetIdRef.current = msg.id;
+    }
   }
 
   function me(content: string) {
     dispatch({ type: 'ADD_MSG', payload: makeMsg('user', content) });
+  }
+
+  function enableInput(placeholder: string) {
+    dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder } });
+  }
+
+  function disableInput() {
+    dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
   }
 
   // ── flow engine ───────────────────────────────────────────────────────────
@@ -107,7 +127,7 @@ export function useConversation() {
           withTyping(700, () => {
             const q = getQuestion('currently_insured');
             bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[], 'currently_insured');
-            dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
+            enableInput('Ou tapez votre réponse…');
             dispatch({ type: 'SET_STEP', payload: 'currently_insured' });
           });
         }, 600);
@@ -129,7 +149,7 @@ export function useConversation() {
           'Avant de continuer, **une astuce** : tu peux m\'envoyer une photo de ta carte de tiers payant ou de ton attestation. Ça me permettra de pré-remplir certaines infos et d\'économiser des questions.',
           'document-upload',
         );
-        dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
+        enableInput('Ou saisissez le montant directement…');
       });
       return;
     }
@@ -161,7 +181,7 @@ export function useConversation() {
                 withTyping(700, () => {
                   const q = getQuestion(nextId!); // date_of_birth
                   bot(q.prompt);
-                  dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder: q.placeholder ?? '' } });
+                  enableInput(q.placeholder ?? '');
                   dispatch({ type: 'SET_STEP', payload: nextId! });
                 });
               }, 300);
@@ -175,7 +195,7 @@ export function useConversation() {
     // ── Toutes les questions répondues → comparaison ──────────────────────
     if (!nextId) {
       dispatch({ type: 'SET_STEP', payload: 'calculating' });
-      dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
+      disableInput();
       withTyping(800, () => {
         bot('Parfait ! Je prépare ta **comparaison personnalisée**…', 'calculating');
         later(() => {
@@ -215,7 +235,7 @@ export function useConversation() {
             withTyping(700, () => {
               const q = getQuestion(nextId);
               bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[], nextId);
-              dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
+              enableInput('Ou tapez votre réponse…');
             });
           }, 300);
         }, 200);
@@ -235,10 +255,10 @@ export function useConversation() {
       const q = getQuestion(nextId);
       if (q.type === 'choice') {
         bot(q.prompt, 'quick-reply', q.options as QuickReplyOption[], nextId);
-        dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
+        enableInput('Ou tapez votre réponse…');
       } else {
         bot(q.prompt);
-        dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder: q.placeholder ?? 'Votre réponse…' } });
+        enableInput(q.placeholder ?? 'Votre réponse…');
       }
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -247,7 +267,10 @@ export function useConversation() {
   // ── boot ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     dispatch({ type: 'SET_STEP', payload: 'consent' });
-    withTyping(1000, () => bot(CONSENT_TEXT, 'consent-card'));
+    withTyping(1000, () => {
+      bot(CONSENT_TEXT, 'consent-card');
+      enableInput('Poser une question…');
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -257,16 +280,25 @@ export function useConversation() {
     answersRef.current = { ...answersRef.current, [id]: value };
   }
 
+  function consumePendingWidget() {
+    if (pendingWidgetIdRef.current) {
+      dispatch({ type: 'CONSUME', payload: pendingWidgetIdRef.current });
+      pendingWidgetIdRef.current = null;
+    }
+  }
+
   // ── API publique ──────────────────────────────────────────────────────────
 
   const acceptConsent = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
+    pendingWidgetIdRef.current = null;
     me("C'est parti, on y va !");
     advance(answersRef.current);
   }, [advance]);
 
   const declineConsent = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
+    pendingWidgetIdRef.current = null;
     me('Non merci.');
     withTyping(800, () => bot("Pas de problème. Reviens quand tu veux. Bonne journée ! 👋"));
     dispatch({ type: 'SET_STEP', payload: 'done' });
@@ -275,24 +307,54 @@ export function useConversation() {
 
   const submitText = useCallback((value: string) => {
     const step = state.currentStep;
+    const v = value.trim();
+    if (!v) return;
+
+    // Ignore during non-interactive steps
+    if (INACTIVE_STEPS.includes(step)) return;
+
+    // Validate only for text-type questions
     let err: string | null = null;
     try {
       const q = getQuestion(step);
-      err = q.validate?.(value.trim()) ?? null;
+      if (q.type === 'text') {
+        err = q.validate?.(v) ?? null;
+      }
+      // choice questions: free-text accepted, no validation
     } catch {
-      return;
+      // Non-question step (consent, doc_upload, result, contact…) — accept free text
     }
+
     if (err) { dispatch({ type: 'SET_ERROR', payload: err }); return; }
     dispatch({ type: 'SET_ERROR', payload: null });
-    dispatch({ type: 'SET_INPUT', payload: { disabled: true } });
-    me(value.trim());
-    recordAnswer(step, value.trim());
+    disableInput();
+    consumePendingWidget();
+    me(v);
+
+    // Handle special steps
+    if (step === 'consent') {
+      advance(answersRef.current);
+      return;
+    }
+    if (step === 'doc_upload') {
+      answersRef.current = { ...answersRef.current, doc_upload_skipped: true };
+      advance({ ...answersRef.current });
+      return;
+    }
+    if (['result', 'contact'].includes(step)) {
+      withTyping(600, () => bot('Merci pour ton message. Tu peux utiliser les boutons ci-dessus pour continuer, ou être rappelé(e) par un conseiller. 😊'));
+      enableInput('Une question ?');
+      return;
+    }
+
+    recordAnswer(step, v);
     advance({ ...answersRef.current });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentStep, advance]);
 
   const selectOption = useCallback((msgId: string, questionId: string, value: string, label: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
+    pendingWidgetIdRef.current = null;
     me(label);
     recordAnswer(questionId, value);
     advance({ ...answersRef.current });
@@ -302,11 +364,11 @@ export function useConversation() {
 
   const handleDocUpload = useCallback((msgId: string, _file: File) => {
     dispatch({ type: 'CONSUME', payload: msgId });
+    pendingWidgetIdRef.current = null;
     me('📎 Voici ma carte de tiers payant.');
 
     // Simulate OCR analysis
     withTyping(2000, () => {
-      // Pre-fill simulated data from "OCR"
       answersRef.current = {
         ...answersRef.current,
         current_insurer: 'MGEN',
@@ -323,7 +385,7 @@ export function useConversation() {
         withTyping(600, () => {
           const q = getQuestion('current_price');
           bot(q.prompt);
-          dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder: q.placeholder ?? '' } });
+          enableInput(q.placeholder ?? '');
           dispatch({ type: 'SET_STEP', payload: 'current_price' });
         });
       }, 900);
@@ -333,11 +395,12 @@ export function useConversation() {
 
   const handleDocEnterManually = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
+    pendingWidgetIdRef.current = null;
     me('Je préfère saisir le montant directement.');
     withTyping(500, () => {
       const q = getQuestion('current_price');
       bot(q.prompt);
-      dispatch({ type: 'SET_INPUT', payload: { disabled: false, placeholder: q.placeholder ?? '' } });
+      enableInput(q.placeholder ?? '');
       dispatch({ type: 'SET_STEP', payload: 'current_price' });
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -345,6 +408,7 @@ export function useConversation() {
 
   const handleDocSkip = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
+    pendingWidgetIdRef.current = null;
     me('Je passe cette étape.');
     answersRef.current = { ...answersRef.current, doc_upload_skipped: true };
     advance({ ...answersRef.current });
@@ -355,20 +419,24 @@ export function useConversation() {
 
   const continueToBuy = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
+    pendingWidgetIdRef.current = null;
     me('Je souhaite continuer sur Direct Assurance.');
     withTyping(800, () => {
       bot('Parfait ! 🎉 Dans un vrai parcours, tu serais redirigé(e) vers le site sécurisé **directassurances.fr** avec tes informations pré-remplies.\n\n*Ce devis est indicatif et non contractuel.*');
       dispatch({ type: 'SET_STEP', payload: 'done' });
+      disableInput();
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const requestCallback = useCallback((msgId: string) => {
     dispatch({ type: 'CONSUME', payload: msgId });
+    pendingWidgetIdRef.current = null;
     me('Je préfère être rappelé(e) par un conseiller.');
     withTyping(800, () => {
       bot('Un conseiller Direct Assurance te contactera très prochainement. 📞\n\n*Ce devis est indicatif et non contractuel. La souscription finale se fait avec l\'équipe Direct Assurance.*');
       dispatch({ type: 'SET_STEP', payload: 'done' });
+      disableInput();
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
