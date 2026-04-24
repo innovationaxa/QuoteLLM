@@ -30,17 +30,17 @@ export default function App() {
   const phaseIndex = getPhaseIndex(currentStep);
 
   return (
-    <div className="flex h-full bg-surface text-white font-sans overflow-hidden">
+    <div className="flex h-full bg-surface text-gray-900 font-sans overflow-hidden">
       <Sidebar />
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Header with DA-style stepper */}
-        <div className="flex items-center justify-between px-6 py-3 border-b border-border shrink-0">
+        <div className="flex items-center justify-between px-6 py-3 border-b border-border shrink-0 bg-surface">
           <div className="flex items-center gap-1 text-xs">
             {PHASES.map((phase, i) => (
               <div key={phase} className="flex items-center gap-1">
                 {i > 0 && <span className="text-border mx-1">›</span>}
-                <span className={i === phaseIndex ? 'text-white font-medium' : i < phaseIndex ? 'text-da-blue' : 'text-muted'}>
+                <span className={i === phaseIndex ? 'text-gray-900 font-medium' : i < phaseIndex ? 'text-da-blue' : 'text-muted'}>
                   {phase}
                   {i < phaseIndex && <span className="ml-1 text-da-blue">✓</span>}
                 </span>
@@ -51,7 +51,7 @@ export default function App() {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto px-4">
+        <div className="flex-1 overflow-y-auto px-4 bg-surface">
           <div className="max-w-2xl mx-auto py-6 flex flex-col">
             {messages.map(msg => (
                 <MessageBubble

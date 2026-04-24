@@ -4,11 +4,11 @@ export default {
   theme: {
     extend: {
       colors: {
-        sidebar:    '#171717',
-        surface:    '#212121',
-        elevated:   '#2f2f2f',
-        border:     '#383838',
-        muted:      '#8e8ea0',
+        sidebar:    '#f4f5f7',
+        surface:    '#ffffff',
+        elevated:   '#f0f2f5',
+        border:     '#e5e7eb',
+        muted:      '#6b7280',
         // Direct Assurances brand (AXA blue)
         'da-blue':  '#00008F',
         'da-blue-hover': '#0000b8',

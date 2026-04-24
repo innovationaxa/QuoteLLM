@@ -11,7 +11,7 @@ function renderText(text: string) {
   return text.split('\n').map((line, i, arr) => {
     const parts = line.split(/\*\*(.+?)\*\*/g);
     const nodes = parts.map((p, j) =>
-      j % 2 === 1 ? <strong key={j} className="font-semibold text-white">{p}</strong> : p,
+      j % 2 === 1 ? <strong key={j} className="font-semibold text-gray-900">{p}</strong> : p,
     );
     return <span key={i}>{nodes}{i < arr.length - 1 && <br />}</span>;
   });
@@ -35,7 +35,7 @@ export function MessageBubble({
   if (message.role === 'user') {
     return (
       <div className="flex justify-end py-2 animate-fade-up">
-        <div className="max-w-[80%] px-4 py-2.5 rounded-2xl bg-elevated text-white text-sm leading-relaxed">
+        <div className="max-w-[80%] px-4 py-2.5 rounded-2xl bg-elevated text-gray-900 text-sm leading-relaxed">
           {message.content}
         </div>
       </div>
@@ -63,7 +63,7 @@ export function MessageBubble({
 
       <div className="flex-1 min-w-0">
         {message.content && (
-          <p className="text-[15px] text-white leading-relaxed">
+          <p className="text-[15px] text-gray-900 leading-relaxed">
             {renderText(message.content)}
           </p>
         )}

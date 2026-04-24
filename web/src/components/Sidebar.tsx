@@ -33,7 +33,7 @@ export function Sidebar() {
         {!collapsed && (
           <div className="flex items-center gap-2 overflow-hidden">
             <DALogo />
-            <span className="text-white font-semibold text-sm leading-tight whitespace-nowrap">
+            <span className="text-gray-900 font-semibold text-sm leading-tight whitespace-nowrap">
               Direct Assurances
             </span>
           </div>
@@ -41,7 +41,7 @@ export function Sidebar() {
         {collapsed && <DALogo />}
         <button
           onClick={() => setCollapsed(c => !c)}
-          className="text-muted hover:text-white p-1 rounded-md hover:bg-elevated transition-colors ml-auto"
+          className="text-muted hover:text-gray-900 p-1 rounded-md hover:bg-elevated transition-colors ml-auto"
           title={collapsed ? 'Ouvrir sidebar' : 'Réduire sidebar'}
         >
           <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -57,7 +57,7 @@ export function Sidebar() {
       <div className="px-2 pb-3">
         <button className="
           w-full flex items-center gap-3 px-3 py-2 rounded-lg
-          text-sm text-white hover:bg-elevated transition-colors
+          text-sm text-gray-900 hover:bg-elevated transition-colors
         ">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -71,7 +71,7 @@ export function Sidebar() {
           <p className="text-xs text-muted px-2 pb-1 uppercase tracking-wider">Aujourd'hui</p>
         )}
         {/* Active conversation */}
-        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-elevated text-sm text-white cursor-pointer">
+        <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-elevated text-sm text-gray-900 cursor-pointer">
           <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round"
               d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
@@ -94,7 +94,7 @@ export function Sidebar() {
           </div>
           {!collapsed && (
             <div className="overflow-hidden">
-              <p className="text-sm text-white truncate">Utilisateur</p>
+              <p className="text-sm text-gray-900 truncate">Utilisateur</p>
               <p className="text-xs text-muted truncate">Prospect</p>
             </div>
           )}

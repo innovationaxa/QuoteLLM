@@ -23,7 +23,7 @@ export function ContactCTA({ onAccept, onDecline }: Props) {
         </button>
         <button
           onClick={onDecline}
-          className="py-2.5 px-4 rounded-xl border border-border text-muted hover:text-white hover:border-muted text-sm transition-colors"
+          className="py-2.5 px-4 rounded-xl border border-border text-muted hover:text-gray-900 hover:border-muted text-sm transition-colors"
         >
           Non merci
         </button>

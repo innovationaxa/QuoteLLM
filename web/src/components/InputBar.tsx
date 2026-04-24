@@ -43,7 +43,7 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
     <div className="border-t border-border bg-surface pt-3 pb-4 px-4">
       <div className="max-w-2xl mx-auto">
         {error && (
-          <div className="mb-2 px-3 py-2 rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 text-sm">
+          <div className="mb-2 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
             {error}
           </div>
         )}
@@ -64,7 +64,7 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
             placeholder={disabled ? 'En attente de votre sélection…' : placeholder}
             rows={1}
             className="
-              flex-1 bg-transparent text-white text-sm resize-none outline-none
+              flex-1 bg-transparent text-gray-900 text-sm resize-none outline-none
               placeholder:text-muted leading-relaxed
               disabled:cursor-not-allowed
             "
@@ -74,12 +74,12 @@ export function InputBar({ disabled, placeholder, error, onSubmit }: Props) {
             disabled={disabled || !text.trim()}
             className="
               shrink-0 w-8 h-8 rounded-lg flex items-center justify-center
-              bg-white disabled:bg-muted/30 disabled:cursor-not-allowed
-              hover:bg-gray-200 transition-colors
+              bg-gray-900 disabled:bg-gray-300 disabled:cursor-not-allowed
+              hover:bg-gray-700 transition-colors
             "
             title="Envoyer"
           >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#000" strokeWidth={2.5}>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </button>

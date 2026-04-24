@@ -16,7 +16,7 @@ function Section({ title, items }: { title: string; items: RecapData['situation'
               <span>{item.icon}</span>
               <span>{item.label}</span>
             </span>
-            <span className="text-white text-right">{item.value}</span>
+            <span className="text-gray-900 text-right font-medium">{item.value}</span>
           </div>
         ))}
       </div>

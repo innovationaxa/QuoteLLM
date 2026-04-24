@@ -11,9 +11,9 @@ const COLOR_BADGE: Record<string, string> = {
   purple: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
 };
 const COLOR_PRICE: Record<string, string> = {
-  blue:   'text-blue-400',
-  yellow: 'text-yellow-400',
-  purple: 'text-purple-400',
+  blue:   'text-blue-700',
+  yellow: 'text-yellow-600',
+  purple: 'text-purple-700',
 };
 
 function FormulaCard({ f }: { f: FormulaResult }) {
@@ -21,12 +21,12 @@ function FormulaCard({ f }: { f: FormulaResult }) {
     <div className={`
       flex flex-col rounded-2xl border overflow-hidden transition-all
       ${f.recommended
-        ? 'border-white/30 shadow-lg shadow-black/40 scale-[1.02]'
+        ? 'border-da-blue/40 shadow-lg shadow-da-blue/15 scale-[1.02]'
         : 'border-border'}
     `}>
       {/* recommended badge */}
       {f.recommended && (
-        <div className="bg-white text-[#212121] text-xs font-bold text-center py-1 tracking-wider uppercase">
+        <div className="bg-da-blue text-white text-xs font-bold text-center py-1 tracking-wider uppercase">
           ★ Recommandée
         </div>
       )}
@@ -44,7 +44,7 @@ function FormulaCard({ f }: { f: FormulaResult }) {
           <span className="text-base font-normal text-muted ml-1">€ / mois</span>
         </div>
         <p className="text-xs text-muted mt-1">
-          soit <strong className="text-white">{f.annualPremium.toFixed(2).replace('.', ',')} €</strong>/an
+          soit <strong className="text-gray-900">{f.annualPremium.toFixed(2).replace('.', ',')} €</strong>/an
         </p>
       </div>
 
@@ -52,7 +52,7 @@ function FormulaCard({ f }: { f: FormulaResult }) {
       <div className="bg-elevated px-4 py-3 flex flex-col gap-2 flex-1">
         {Object.values(f.coverage).map(line => (
           <div key={line} className="flex items-start gap-2 text-xs text-muted">
-            <span className="text-green-400 shrink-0 mt-0.5">✓</span>
+            <span className="text-green-600 shrink-0 mt-0.5">✓</span>
             <span>{line}</span>
           </div>
         ))}
@@ -64,7 +64,7 @@ function FormulaCard({ f }: { f: FormulaResult }) {
           w-full py-2.5 rounded-xl text-sm font-semibold transition-colors
           ${f.recommended
             ? 'bg-da-blue hover:bg-da-blue-hover text-white'
-            : 'border border-border text-muted hover:text-white hover:border-muted'}
+            : 'border border-border text-muted hover:text-gray-900 hover:border-muted'}
         `}>
           Sélectionner
         </button>
@@ -79,10 +79,10 @@ export function FormulaComparison({ data }: Props) {
   return (
     <div className="mt-3 animate-fade-up w-full max-w-2xl">
       {/* recommendation reason */}
-      <div className="mb-3 px-4 py-2.5 rounded-xl bg-da-blue/15 border border-da-blue/30 text-sm text-blue-300 leading-relaxed">
+      <div className="mb-3 px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800 leading-relaxed">
         {data.recommendationReason.split('**').map((part, i) =>
           i % 2 === 1
-            ? <strong key={i} className="text-white">{part}</strong>
+            ? <strong key={i} className="text-blue-900">{part}</strong>
             : part
         )}
       </div>
