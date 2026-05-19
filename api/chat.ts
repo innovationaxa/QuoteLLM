@@ -149,7 +149,15 @@ export default async function handler(request: Request): Promise<Response> {
     if (!openaiRes.ok) {
       const errText = await openaiRes.text();
       console.error('[api/chat] OpenAI error', openaiRes.status, errText);
-      throw new Error(`OpenAI ${openaiRes.status}: ${errText}`);
+      // Surface the real error in the reply so it's visible in the UI
+      let userMsg = "Désolé, une erreur technique est survenue. Peux-tu réessayer dans un instant ?";
+      try {
+        const errJson = JSON.parse(errText);
+        if (errJson?.error?.message) userMsg = `Erreur API : ${errJson.error.message}`;
+      } catch {}
+      return new Response(JSON.stringify({ reply: userMsg, slots: {}, action: null }), {
+        status: 200, headers: { ...cors, 'Content-Type': 'application/json' },
+      });
     }
 
     const data: any = await openaiRes.json();
