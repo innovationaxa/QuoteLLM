@@ -191,80 +191,80 @@ export function InputBar({
               </svg>
             </button>
 
-            {/* Brand chip — non-interactive, just identity */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#e5e5e5] text-[13px] font-medium text-gray-700 select-none">
-              <img src={daLogoSrc} alt="DA" width={15} height={15} style={{ borderRadius: 3, objectFit: 'contain' }} />
-              <span>Direct Assurance</span>
-            </div>
+            {/* Brand chip — hidden while recording */}
+            {!isListening && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#e5e5e5] text-[13px] font-medium text-gray-700 select-none">
+                <img src={daLogoSrc} alt="DA" width={15} height={15} style={{ borderRadius: 3, objectFit: 'contain' }} />
+                <span>Direct Assurance</span>
+              </div>
+            )}
 
             <div className="flex-1" />
 
-            {/* Mic / STT */}
-            {sttSupported && (
+            {canSend ? (
+              /* ── Text typed → send arrow ── */
               <button
-                onClick={toggleSTT}
-                title={isListening ? 'Arrêter la dictée' : 'Dicter (fr)'}
-                className={`
-                  relative w-9 h-9 rounded-full flex items-center justify-center transition-all
-                  ${isListening
-                    ? 'bg-red-500 text-white'
-                    : 'text-gray-500 hover:bg-gray-100'
-                  }
-                `}
+                onClick={submit}
+                title="Envoyer"
+                className="w-9 h-9 rounded-full bg-gray-900 hover:bg-gray-700 flex items-center justify-center transition-all"
               >
-                {isListening && (
-                  <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-40" />
-                )}
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
-                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 19V5M5 12l7-7 7 7" />
                 </svg>
               </button>
-            )}
-
-            {/* No text → voice mode toggle | Has text → send arrow */}
-            {!canSend ? (
-              <button
-                onClick={onToggleVoice}
-                title={voiceMode ? 'Désactiver le mode vocal' : 'Activer le mode vocal'}
-                className={`
-                  relative w-9 h-9 rounded-full flex items-center justify-center transition-all
-                  ${voiceMode
-                    ? 'bg-gray-900 hover:bg-gray-700'
-                    : 'bg-gray-900 hover:bg-gray-700'
-                  }
-                `}
-              >
-                {isSpeaking && (
-                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white" />
+            ) : isListening ? (
+              /* ── Recording → mic pulse + blue "Arrêter" ── */
+              <>
+                <span className="relative flex items-center justify-center w-9 h-9">
+                  <span className="absolute inset-0 rounded-full bg-blue-400 animate-ping opacity-30" />
+                  <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="#6b7280" strokeWidth={1.8} strokeLinecap="round">
+                    <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+                  </svg>
+                </span>
+                <button
+                  onClick={toggleSTT}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#1d6aff] hover:bg-[#1558e0] text-white text-[13px] font-semibold transition-colors"
+                >
+                  <span className="flex gap-0.5">
+                    <span className="w-1 h-1 rounded-full bg-white/80 animate-bounce" style={{ animationDelay: '0ms' }} />
+                    <span className="w-1 h-1 rounded-full bg-white/80 animate-bounce" style={{ animationDelay: '150ms' }} />
+                    <span className="w-1 h-1 rounded-full bg-white/80 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  </span>
+                  Arrêter
+                </button>
+              </>
+            ) : (
+              /* ── Default → mic (quick dictate) + waveform circle (voice mode) ── */
+              <>
+                {sttSupported && (
+                  <button
+                    onClick={toggleSTT}
+                    title="Dicter (fr)"
+                    className="relative w-9 h-9 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all"
+                  >
+                    <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+                      <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+                    </svg>
+                  </button>
                 )}
-                {voiceMode ? (
-                  /* active: filled waveform bars */
+                <button
+                  onClick={() => { if (!voiceMode) onToggleVoice(); toggleSTT(); }}
+                  title="Mode vocal — parlez, l'assistant vous répond à voix haute"
+                  className="relative w-9 h-9 rounded-full bg-gray-900 hover:bg-gray-700 flex items-center justify-center transition-all"
+                >
+                  {isSpeaking && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white" />
+                  )}
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
                     <rect x="2"  y="9"  width="3" height="6"  rx="1.5" />
                     <rect x="7"  y="5"  width="3" height="14" rx="1.5" />
                     <rect x="12" y="7"  width="3" height="10" rx="1.5" />
                     <rect x="17" y="10" width="3" height="4"  rx="1.5" />
                   </svg>
-                ) : (
-                  /* inactive: speaker with cross */
-                  <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 9H4a1 1 0 00-1 1v4a1 1 0 001 1h2l4 4V5L6 9z" />
-                    <line x1="18" y1="9" x2="23" y2="14" />
-                    <line x1="23" y1="9" x2="18" y2="14" />
-                  </svg>
-                )}
-              </button>
-            ) : (
-              <button
-                onClick={submit}
-                title="Envoyer"
-                className="w-9 h-9 rounded-full bg-gray-900 hover:bg-gray-700 flex items-center justify-center transition-all cursor-pointer"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 19V5M5 12l7-7 7 7" />
-                </svg>
-              </button>
+                </button>
+              </>
             )}
           </div>
         </div>
