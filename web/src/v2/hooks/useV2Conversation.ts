@@ -138,7 +138,16 @@ export function useV2Conversation() {
         }),
       });
 
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error((errBody as any).error ?? `HTTP ${res.status}`);
+      }
+
       const data: ApiResponse = await res.json();
+
+      if (!data.reply && !data.action) {
+        throw new Error('Empty response from API');
+      }
 
       // Merge slots
       const currentSlots = mergeSlots(data.slots ?? {});
