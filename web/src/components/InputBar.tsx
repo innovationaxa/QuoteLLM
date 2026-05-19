@@ -142,7 +142,7 @@ export function InputBar({
   const displayError = error ?? sttError;
 
   return (
-    <div className="bg-surface pt-3 pb-4 px-4">
+    <div className="bg-surface pt-2 pb-4 px-4">
       <div className="max-w-2xl mx-auto">
         {displayError && (
           <div className="mb-2 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
@@ -150,18 +150,16 @@ export function InputBar({
           </div>
         )}
 
+        {/* Pill container */}
         <div className={`
-          rounded-3xl border bg-white transition-all
+          rounded-3xl border bg-white transition-shadow
           ${isListening
             ? 'border-red-300 shadow-md shadow-red-100'
-            : voiceMode && isSpeaking
-              ? 'border-da-blue/40 shadow-md shadow-da-blue/10'
-              : disabled
-                ? 'border-border opacity-60'
-                : 'border-border shadow-sm focus-within:border-gray-300 focus-within:shadow-md'
+            : 'border-[#e5e5e5] shadow-sm focus-within:shadow-md'
           }
+          ${disabled && !isListening ? 'opacity-60' : ''}
         `}>
-          {/* Textarea — never disabled during STT so transcript can appear */}
+          {/* Textarea */}
           <div className="px-4 pt-3.5 pb-1">
             <textarea
               ref={textareaRef}
@@ -170,129 +168,98 @@ export function InputBar({
               onKeyDown={onKey}
               disabled={disabled && !isListening}
               placeholder={
-                isListening
-                  ? '🎙 Je vous écoute…'
-                  : isSpeaking
-                    ? '🔊 Lecture en cours…'
-                    : (placeholder || 'Poser une question')
+                isListening ? 'Je vous écoute…'
+                : isSpeaking  ? 'Lecture en cours…'
+                : (placeholder || 'Poser une question')
               }
               rows={1}
-              className="
-                w-full bg-transparent text-gray-900 text-[15px] resize-none outline-none
-                placeholder:text-muted leading-relaxed disabled:cursor-not-allowed
-              "
+              className="w-full bg-transparent text-gray-900 text-[15px] resize-none outline-none placeholder:text-[#8e8ea0] leading-relaxed disabled:cursor-not-allowed"
             />
           </div>
 
-          {/* Bottom action bar */}
-          <div className="flex items-center gap-2 px-3 pb-3 pt-1">
-            {/* Attachment */}
+          {/* Bottom toolbar */}
+          <div className="flex items-center gap-1.5 px-3 pb-3 pt-0.5">
+
+            {/* + button */}
             <button
               disabled={disabled}
-              className="w-8 h-8 rounded-full flex items-center justify-center text-muted hover:text-gray-700 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Joindre un fichier"
+              title="Joindre"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
               </svg>
             </button>
 
             {/* Brand chip */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border bg-elevated select-none">
-              <img src={daLogoSrc} alt="DA" width={16} height={16} style={{ borderRadius: 3, objectFit: 'contain' }} />
-              <span className="font-medium text-[13px] text-gray-700">Direct Assurance</span>
-            </div>
-
-            <div className="flex-1" />
-
-            {/* Voice mode toggle */}
             <button
               onClick={onToggleVoice}
-              title={voiceMode ? 'Désactiver le mode vocal' : 'Activer le mode vocal (lecture des réponses)'}
+              title={voiceMode ? 'Désactiver le mode vocal' : 'Activer le mode vocal'}
               className={`
-                relative flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[12px] font-medium
-                border transition-all
+                relative flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[13px] font-medium transition-all select-none
                 ${voiceMode
-                  ? 'bg-da-blue text-white border-da-blue'
-                  : 'text-muted border-border hover:border-gray-400 hover:text-gray-700 bg-white'
+                  ? 'bg-da-blue/10 border-da-blue/30 text-da-blue'
+                  : 'border-[#e5e5e5] text-gray-700 hover:bg-gray-50'
                 }
               `}
             >
               {isSpeaking && (
-                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white" />
+                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400 border border-white" />
               )}
-              <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9H4a1 1 0 00-1 1v4a1 1 0 001 1h2l4 4V5L6 9z" />
-                {voiceMode ? (
-                  <>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072" />
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 5.636a9 9 0 010 12.728" />
-                  </>
-                ) : (
-                  <>
-                    <line x1="23" y1="9" x2="17" y2="15" strokeLinecap="round" />
-                    <line x1="17" y1="9" x2="23" y2="15" strokeLinecap="round" />
-                  </>
-                )}
+              <img src={daLogoSrc} alt="DA" width={15} height={15} style={{ borderRadius: 3, objectFit: 'contain' }} />
+              <span>Direct Assurance</span>
+              {/* chevron */}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
+                <path d="M6 9l6 6 6-6" />
               </svg>
-              {voiceMode ? (isSpeaking ? 'Écoute…' : 'Vocal') : 'Vocal'}
             </button>
 
-            {/* Mic / STT — NEVER disabled so dictation is always available */}
+            <div className="flex-1" />
+
+            {/* Mic / STT */}
             {sttSupported && (
               <button
                 onClick={toggleSTT}
-                title={isListening ? 'Arrêter la dictée' : 'Dicter ma réponse (fr)'}
+                title={isListening ? 'Arrêter la dictée' : 'Dicter (fr)'}
                 className={`
-                  relative w-8 h-8 rounded-full flex items-center justify-center transition-all
+                  relative w-9 h-9 rounded-full flex items-center justify-center transition-all
                   ${isListening
-                    ? 'bg-red-500 text-white shadow-md shadow-red-200'
-                    : 'text-muted hover:text-gray-700 hover:bg-gray-100'
+                    ? 'bg-red-500 text-white'
+                    : 'text-gray-500 hover:bg-gray-100'
                   }
                 `}
               >
                 {isListening && (
-                  <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-50" />
+                  <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-40" />
                 )}
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={isListening ? 2.2 : 1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round"
-                    d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
-                  <path strokeLinecap="round" strokeLinejoin="round"
-                    d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round">
+                  <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
                 </svg>
               </button>
             )}
 
-            {/* Send */}
+            {/* Send — always dark circle, arrow up */}
             <button
               onClick={submit}
               disabled={!canSend}
               title="Envoyer"
               className={`
-                w-8 h-8 rounded-full flex items-center justify-center transition-all
+                w-9 h-9 rounded-full flex items-center justify-center transition-all
                 ${canSend
                   ? 'bg-gray-900 hover:bg-gray-700 cursor-pointer'
-                  : 'bg-gray-200 cursor-not-allowed'
+                  : 'bg-gray-900 opacity-20 cursor-not-allowed'
                 }
               `}
             >
-              {canSend ? (
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
-                  <rect x="3"  y="9"  width="3" height="6"  rx="1.5" />
-                  <rect x="8"  y="5"  width="3" height="14" rx="1.5" />
-                  <rect x="13" y="7"  width="3" height="10" rx="1.5" />
-                  <rect x="18" y="10" width="3" height="4"  rx="1.5" />
-                </svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M12 5l7 7-7 7" />
-                </svg>
-              )}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 19V5M5 12l7-7 7 7" />
+              </svg>
             </button>
           </div>
         </div>
 
-        <p className="text-center text-xs text-muted mt-2">
+        <p className="text-center text-xs text-[#8e8ea0] mt-2">
           Direct Assurance peut faire des erreurs. Ce devis est indicatif.
         </p>
       </div>
