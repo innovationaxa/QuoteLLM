@@ -147,9 +147,9 @@ export default async function handler(request: Request): Promise<Response> {
     });
 
     if (!openaiRes.ok) {
-      const err = await openaiRes.text();
-      console.error('[api/chat] OpenAI error', openaiRes.status, err);
-      throw new Error(`OpenAI ${openaiRes.status}`);
+      const errText = await openaiRes.text();
+      console.error('[api/chat] OpenAI error', openaiRes.status, errText);
+      throw new Error(`OpenAI ${openaiRes.status}: ${errText}`);
     }
 
     const data: any = await openaiRes.json();
