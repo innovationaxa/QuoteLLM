@@ -139,9 +139,8 @@ export default async function handler(request: Request): Promise<Response> {
         'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        model:       'gpt-5.5',
-        max_tokens:  512,
-        temperature: 0.4,
+        model:                'gpt-5.5',
+        max_completion_tokens: 512,
         messages:    openaiMessages,
       }),
     });
