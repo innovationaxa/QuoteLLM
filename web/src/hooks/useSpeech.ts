@@ -15,8 +15,9 @@ function stripMd(text: string): string {
 // ─── hook ─────────────────────────────────────────────────────────────────────
 
 export function useSpeech() {
-  const [voiceMode, setVoiceMode]   = useState(false);
+  const [voiceMode,  setVoiceMode]  = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [ttsError,   setTtsError]   = useState<string | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -49,13 +50,17 @@ export function useSpeech() {
     // ── Server-side ElevenLabs proxy ─────────────────────────────────────────
     try {
       setIsSpeaking(true);
+      setTtsError(null);
       const res = await fetch('/api/tts', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ text: clean }),
       });
 
-      if (!res.ok) throw new Error(`TTS ${res.status}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error((body as any).error ?? `TTS ${res.status}`);
+      }
 
       const blob  = await res.blob();
       const url   = URL.createObjectURL(blob);
@@ -66,9 +71,10 @@ export function useSpeech() {
       audio.onerror = () => { URL.revokeObjectURL(url); setIsSpeaking(false); audioRef.current = null; };
       await audio.play();
       return;
-    } catch (err) {
-      console.warn('[TTS] ElevenLabs proxy failed, falling back to Web Speech', err);
+    } catch (err: any) {
+      console.warn('[TTS] proxy failed:', err?.message);
       setIsSpeaking(false);
+      setTtsError(`Mode vocal indisponible : ${err?.message ?? 'erreur inconnue'}`);
     }
 
     // ── Web Speech API fallback ───────────────────────────────────────────────
@@ -91,5 +97,5 @@ export function useSpeech() {
     });
   }
 
-  return { voiceMode, toggleVoiceMode, isSpeaking, speak, stop };
+  return { voiceMode, toggleVoiceMode, isSpeaking, speak, stop, ttsError };
 }

@@ -12,7 +12,7 @@ export default function AppV2() {
     sendMessage, handleNeedsTuner, continueToBuy, requestCallback,
   } = useV2Conversation();
 
-  const { voiceMode, toggleVoiceMode, isSpeaking, speak, stop } = useSpeech();
+  const { voiceMode, toggleVoiceMode, isSpeaking, speak, stop, ttsError } = useSpeech();
 
   const bottomRef    = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
@@ -88,7 +88,7 @@ export default function AppV2() {
         <InputBar
           disabled={inputDisabled}
           placeholder="Posez votre question ou répondez ici…"
-          error={null}
+          error={ttsError}
           onSubmit={sendMessage}
           voiceMode={voiceMode}
           isSpeaking={isSpeaking}
