@@ -99,7 +99,7 @@ DENTAIRE — souvent sous-estimé :
 
 Valeurs de "action" :
 - null : conversation normale
-- "show-pricing" : DÉCLENCHE le calcul du devis. À utiliser dès que date_of_birth + regime + family_composition sont connus. Dans le reply, annonce que tu calcules.
+- "show-pricing" : DÉCLENCHE le calcul du devis. À utiliser UNIQUEMENT quand les 6 slots suivants sont tous connus : date_of_birth + regime + family_composition + hospitalization_need + optics_need + dental_need. Ne déclenche PAS avant d'avoir les 3 besoins (hospit, optique, dentaire) — même si les infos de base sont connues. Dans le reply, annonce que tu calcules.
 - "show-cta" : quand l'utilisateur confirme vouloir finaliser sur le site DA
 
 ## Formules Direct Assurance (référence interne)

@@ -164,8 +164,13 @@ export function useV2Conversation() {
         addMessages(botMsg(data.reply));
       }
 
-      // Handle action
-      if (data.action === 'show-pricing' && !quote) {
+      // Handle action — show-pricing only when all 6 required slots are present
+      const hasAllNeeds = !!(
+        currentSlots.hospitalization_need &&
+        currentSlots.optics_need &&
+        currentSlots.dental_need
+      );
+      if (data.action === 'show-pricing' && !quote && hasAllNeeds) {
         setTimeout(() => showPricing(currentSlots), 300);
       } else if (data.action === 'show-cta') {
         setTimeout(() => {
