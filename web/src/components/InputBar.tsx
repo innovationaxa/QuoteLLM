@@ -44,9 +44,15 @@ function useSTT(
 
     rec.onerror = (e: any) => {
       setIsListening(false);
-      if (e.error === 'not-allowed' || e.error === 'permission-denied') {
-        setSttError('Microphone non autorisé — vérifiez les permissions du navigateur.');
-      }
+      const msg: Record<string, string> = {
+        'not-allowed':        'Microphone non autorisé — autorisez l\'accès dans les réglages du navigateur.',
+        'permission-denied':  'Microphone non autorisé — autorisez l\'accès dans les réglages du navigateur.',
+        'service-not-allowed':'Service de reconnaissance vocale non disponible sur ce navigateur.',
+        'no-speech':          'Aucune parole détectée. Réessayez.',
+        'network':            'Erreur réseau lors de la reconnaissance vocale.',
+        'audio-capture':      'Impossible d\'accéder au microphone.',
+      };
+      setSttError(msg[e.error] ?? `Erreur dictée : ${e.error}`);
     };
 
     // onend fires after continuous=false auto-stops → trigger submit
