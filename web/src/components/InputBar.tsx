@@ -1,70 +1,83 @@
 import { useState, useRef, useEffect, KeyboardEvent } from 'react';
 import daLogoSrc from '../assets/da-logo.png';
 
-// ─── STT hook ─────────────────────────────────────────────────────────────────
+// ─── STT hook (MediaRecorder → OpenAI Whisper) ───────────────────────────────
 
 function useSTT(
   onInterim: (text: string) => void,
   onFinal:   (text: string) => void,
 ) {
   const [isListening, setIsListening] = useState(false);
-  const [supported, setSupported]     = useState(false);
-  const [sttError, setSttError]       = useState<string | null>(null);
-  const recognitionRef  = useRef<any>(null);
-  const transcriptRef   = useRef('');
+  const [supported,   setSupported]   = useState(false);
+  const [sttError,    setSttError]    = useState<string | null>(null);
+  const recorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef   = useRef<Blob[]>([]);
 
   useEffect(() => {
-    setSupported(
-      !!(window as any).SpeechRecognition || !!(window as any).webkitSpeechRecognition,
-    );
+    setSupported(!!(navigator.mediaDevices?.getUserMedia) && !!(window.MediaRecorder));
   }, []);
 
-  function toggle() {
+  async function toggle() {
     setSttError(null);
-    if (isListening) { recognitionRef.current?.stop(); return; }
 
-    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
-    if (!SR) return;
+    // Stop recording
+    if (isListening) {
+      recorderRef.current?.stop();
+      return;
+    }
 
-    transcriptRef.current = '';
-    const rec = new SR();
-    rec.lang           = 'fr-FR';
-    rec.continuous     = false;   // auto-stops after a pause
-    rec.interimResults = true;
+    // Start recording
+    let stream: MediaStream;
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch {
+      setSttError('Microphone non autorisé — autorisez l\'accès dans les réglages du navigateur.');
+      return;
+    }
 
-    rec.onresult = (e: any) => {
-      // Rebuild full transcript from all result segments
-      let t = '';
-      for (let i = 0; i < e.results.length; i++) {
-        t += e.results[i][0].transcript;
+    chunksRef.current = [];
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/mp4';
+    const recorder  = new MediaRecorder(stream, { mimeType });
+    recorderRef.current = recorder;
+
+    recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
+
+    recorder.onstop = async () => {
+      stream.getTracks().forEach(t => t.stop());
+      setIsListening(false);
+
+      const blob = new Blob(chunksRef.current, { type: mimeType });
+      chunksRef.current = [];
+      if (blob.size < 200) return;
+
+      // Show loading state in field
+      onInterim('…');
+
+      try {
+        const ext  = mimeType.includes('webm') ? 'webm' : 'mp4';
+        const form = new FormData();
+        form.append('audio', new File([blob], `rec.${ext}`, { type: mimeType }));
+
+        const res = await fetch('/api/stt', { method: 'POST', body: form });
+        if (!res.ok) throw new Error(`STT ${res.status}`);
+
+        const data = await res.json();
+        const text = (data.text as string)?.trim();
+
+        if (text) {
+          onInterim(text);
+          onFinal(text);
+        } else {
+          onInterim('');
+          setSttError('Aucune parole détectée, réessayez.');
+        }
+      } catch {
+        onInterim('');
+        setSttError('Erreur lors de la transcription, réessayez.');
       }
-      transcriptRef.current = t;
-      onInterim(t);
     };
 
-    rec.onerror = (e: any) => {
-      setIsListening(false);
-      const msg: Record<string, string> = {
-        'not-allowed':        'Microphone non autorisé — autorisez l\'accès dans les réglages du navigateur.',
-        'permission-denied':  'Microphone non autorisé — autorisez l\'accès dans les réglages du navigateur.',
-        'service-not-allowed':'Service de reconnaissance vocale non disponible sur ce navigateur.',
-        'no-speech':          'Aucune parole détectée. Réessayez.',
-        'network':            'Erreur réseau lors de la reconnaissance vocale.',
-        'audio-capture':      'Impossible d\'accéder au microphone.',
-      };
-      setSttError(msg[e.error] ?? `Erreur dictée : ${e.error}`);
-    };
-
-    // onend fires after continuous=false auto-stops → trigger submit
-    rec.onend = () => {
-      setIsListening(false);
-      const final = transcriptRef.current.trim();
-      transcriptRef.current = '';
-      if (final) onFinal(final);
-    };
-
-    rec.start();
-    recognitionRef.current = rec;
+    recorder.start();
     setIsListening(true);
   }
 
