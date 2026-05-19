@@ -191,28 +191,11 @@ export function InputBar({
               </svg>
             </button>
 
-            {/* Brand chip */}
-            <button
-              onClick={onToggleVoice}
-              title={voiceMode ? 'Désactiver le mode vocal' : 'Activer le mode vocal'}
-              className={`
-                relative flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[13px] font-medium transition-all select-none
-                ${voiceMode
-                  ? 'bg-da-blue/10 border-da-blue/30 text-da-blue'
-                  : 'border-[#e5e5e5] text-gray-700 hover:bg-gray-50'
-                }
-              `}
-            >
-              {isSpeaking && (
-                <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-green-400 border border-white" />
-              )}
+            {/* Brand chip — non-interactive, just identity */}
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-[#e5e5e5] text-[13px] font-medium text-gray-700 select-none">
               <img src={daLogoSrc} alt="DA" width={15} height={15} style={{ borderRadius: 3, objectFit: 'contain' }} />
               <span>Direct Assurance</span>
-              {/* chevron */}
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </button>
+            </div>
 
             <div className="flex-1" />
 
@@ -239,28 +222,55 @@ export function InputBar({
               </button>
             )}
 
-            {/* Send — always dark circle, arrow up */}
-            <button
-              onClick={submit}
-              disabled={!canSend}
-              title="Envoyer"
-              className={`
-                w-9 h-9 rounded-full flex items-center justify-center transition-all
-                ${canSend
-                  ? 'bg-gray-900 hover:bg-gray-700 cursor-pointer'
-                  : 'bg-gray-900 opacity-20 cursor-not-allowed'
-                }
-              `}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 19V5M5 12l7-7 7 7" />
-              </svg>
-            </button>
+            {/* No text → voice mode toggle | Has text → send arrow */}
+            {!canSend ? (
+              <button
+                onClick={onToggleVoice}
+                title={voiceMode ? 'Désactiver le mode vocal' : 'Activer le mode vocal'}
+                className={`
+                  relative w-9 h-9 rounded-full flex items-center justify-center transition-all
+                  ${voiceMode
+                    ? 'bg-gray-900 hover:bg-gray-700'
+                    : 'bg-gray-900 hover:bg-gray-700'
+                  }
+                `}
+              >
+                {isSpeaking && (
+                  <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-green-400 border-2 border-white" />
+                )}
+                {voiceMode ? (
+                  /* active: filled waveform bars */
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                    <rect x="2"  y="9"  width="3" height="6"  rx="1.5" />
+                    <rect x="7"  y="5"  width="3" height="14" rx="1.5" />
+                    <rect x="12" y="7"  width="3" height="10" rx="1.5" />
+                    <rect x="17" y="10" width="3" height="4"  rx="1.5" />
+                  </svg>
+                ) : (
+                  /* inactive: speaker with cross */
+                  <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="white" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 9H4a1 1 0 00-1 1v4a1 1 0 001 1h2l4 4V5L6 9z" />
+                    <line x1="18" y1="9" x2="23" y2="14" />
+                    <line x1="23" y1="9" x2="18" y2="14" />
+                  </svg>
+                )}
+              </button>
+            ) : (
+              <button
+                onClick={submit}
+                title="Envoyer"
+                className="w-9 h-9 rounded-full bg-gray-900 hover:bg-gray-700 flex items-center justify-center transition-all cursor-pointer"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 19V5M5 12l7-7 7 7" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
 
         <p className="text-center text-xs text-[#8e8ea0] mt-2">
-          Direct Assurance peut faire des erreurs. Ce devis est indicatif.
+          L'assistant IA peut faire des erreurs. Envisagez de vérifier les informations importantes.
         </p>
       </div>
     </div>
