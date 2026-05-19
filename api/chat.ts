@@ -51,7 +51,7 @@ Extrais ces informations naturellement au fil de la conversation :
 ## Données déjà connues
 ${known || '  (aucune pour l\'instant)'}
 
-## FORMAT DE RÉPONSE (OBLIGATOIRE : réponds TOUJOURS en JSON valide)
+## FORMAT DE RÉPONSE (OBLIGATOIRE : réponds TOUJOURS en JSON valide, sans markdown)
 {
   "reply": "Ton message en français ici",
   "slots": {
@@ -105,11 +105,11 @@ export default async function handler(request: Request): Promise<Response> {
     });
   }
 
-  const apiKey = (globalThis as any).process?.env?.ANTHROPIC_API_KEY
-    ?? (globalThis as any).ANTHROPIC_API_KEY;
+  const apiKey = (globalThis as any).process?.env?.OPENAI_API_KEY
+    ?? (globalThis as any).OPENAI_API_KEY;
 
   if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not set' }), {
+    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not set' }), {
       status: 500, headers: { ...cors, 'Content-Type': 'application/json' },
     });
   }
@@ -125,30 +125,35 @@ export default async function handler(request: Request): Promise<Response> {
 
   const { messages = [], slots = {} } = body;
 
+  // Build OpenAI messages array: system prompt + conversation history
+  const openaiMessages = [
+    { role: 'system', content: buildSystemPrompt(slots) },
+    ...messages,
+  ];
+
   try {
-    const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
+    const openaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'x-api-key':         apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type':      'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type':  'application/json',
       },
       body: JSON.stringify({
-        model:      'claude-haiku-4-5-20251001',
-        max_tokens: 512,
-        system:     buildSystemPrompt(slots),
-        messages,
+        model:       'gpt-4o-mini',
+        max_tokens:  512,
+        temperature: 0.4,
+        messages:    openaiMessages,
       }),
     });
 
-    if (!anthropicRes.ok) {
-      const err = await anthropicRes.text();
-      console.error('[api/chat] Anthropic error', anthropicRes.status, err);
-      throw new Error(`Anthropic ${anthropicRes.status}`);
+    if (!openaiRes.ok) {
+      const err = await openaiRes.text();
+      console.error('[api/chat] OpenAI error', openaiRes.status, err);
+      throw new Error(`OpenAI ${openaiRes.status}`);
     }
 
-    const data: any = await anthropicRes.json();
-    const rawText: string = data?.content?.[0]?.text ?? '';
+    const data: any = await openaiRes.json();
+    const rawText: string = data?.choices?.[0]?.message?.content ?? '';
 
     // Robust JSON extraction — handles code-fenced or bare JSON
     let parsed: { reply: string; slots: Partial<Slots>; action: string | null };
