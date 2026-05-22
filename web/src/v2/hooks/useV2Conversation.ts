@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
+
 import { calculateQuote } from '../../data/pricing';
 import type { ChatMessage, Answers, QuoteResult, NeedsTunerData } from '../../types';
 import type { Slots, ApiResponse } from '../types';
@@ -47,6 +48,11 @@ export function useV2Conversation() {
   // Keep a ref for the rolling API history (trimmed, no widget metadata)
   const apiHistoryRef = useRef<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const slotsRef      = useRef<Slots>(EMPTY_SLOTS);
+
+  // UX redesign refs
+  const needsMatrixShownRef = useRef(false);
+  const regimeChipsShownRef = useRef(false);
+  const familyChipsShownRef = useRef(false);
 
   const mergeSlots = useCallback((incoming: Partial<Slots>) => {
     const next = { ...slotsRef.current, ...incoming };
@@ -107,6 +113,30 @@ export function useV2Conversation() {
     }, 300);
   }, [addMessages]);
 
+  const handleNeedsMatrix = useCallback((msgId: string, sel: { hospitalization_need: string; optics_need: string; dental_need: string }) => {
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, consumed: true } : m));
+    const currentSlots = mergeSlots(sel);
+    setTimeout(() => {
+      addMessages(botMsg('Voici un récapitulatif de ton profil — tout est correct ?', {
+        widget: 'profile-recap',
+        widgetData: {
+          date_of_birth:        currentSlots.date_of_birth        ?? '',
+          regime:               currentSlots.regime               ?? '',
+          family_composition:   currentSlots.family_composition   ?? '',
+          hospitalization_need: sel.hospitalization_need,
+          optics_need:          sel.optics_need,
+          dental_need:          sel.dental_need,
+        },
+        consumed: false,
+      }));
+    }, 300);
+  }, [mergeSlots, addMessages]);
+
+  const handleProfileRecap = useCallback((msgId: string) => {
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, consumed: true } : m));
+    setTimeout(() => showPricing(slotsRef.current), 300);
+  }, [showPricing]);
+
   const continueToBuy = useCallback(() => {
     const recommended = quote?.formulas.find(f => f.recommended) ?? quote?.formulas[1];
     const url = 'https://www.direct-assurance.fr/mutuelle-sante/devis';
@@ -149,8 +179,16 @@ export function useV2Conversation() {
         throw new Error('Empty response from API');
       }
 
+      // Capture step1 state BEFORE merging new slots
+      const prevStep1Done = !!(slotsRef.current.date_of_birth && slotsRef.current.regime && slotsRef.current.family_composition);
+
       // Merge slots
       const currentSlots = mergeSlots(data.slots ?? {});
+
+      // Compute step1 state AFTER merge
+      const step1Done = !!(currentSlots.date_of_birth && currentSlots.regime && currentSlots.family_composition);
+      const step1JustComplete = step1Done && !prevStep1Done;
+      const needsStillEmpty = !currentSlots.hospitalization_need && !currentSlots.optics_need && !currentSlots.dental_need;
 
       // Add assistant reply to history
       if (data.reply) {
@@ -177,6 +215,51 @@ export function useV2Conversation() {
           addMessages(botMsg('', { widget: 'cta-card', widgetData: { label: 'Continuer sur Direct Assurance' }, consumed: false }));
         }, 200);
       }
+
+      // Inject NeedsMatrix when step1 just completed and needs are still empty
+      if (step1JustComplete && needsStillEmpty && !needsMatrixShownRef.current && data.action !== 'show-pricing') {
+        needsMatrixShownRef.current = true;
+        setTimeout(() => {
+          addMessages(botMsg('Pour affiner tes formules, dis-moi quels sont tes besoins en couverture :', {
+            widget: 'needs-matrix',
+            widgetData: {},
+            consumed: false,
+          }));
+        }, 800);
+      }
+
+      // Inject contextual chips if step1 not complete and no special action
+      if (data.action === null && !step1Done) {
+        if (!currentSlots.regime && !regimeChipsShownRef.current) {
+          regimeChipsShownRef.current = true;
+          setTimeout(() => addMessages(botMsg('', {
+            widget: 'quick-reply',
+            questionId: 'regime_chips',
+            widgetData: [
+              { value: 'general',        label: 'Salarié (régime général)',  emoji: '💼' },
+              { value: 'independent',    label: 'Indépendant / TNS',          emoji: '🧑‍💻' },
+              { value: 'student',        label: 'Étudiant·e',                 emoji: '🎓' },
+              { value: 'agriculture',    label: 'Agriculteur',                emoji: '🌾' },
+              { value: 'alsace_moselle', label: 'Alsace-Moselle',             emoji: '🏡' },
+              { value: 'other',          label: 'Autre régime',               emoji: '❓' },
+            ],
+            consumed: false,
+          })), 300);
+        } else if (currentSlots.regime && !currentSlots.family_composition && !familyChipsShownRef.current) {
+          familyChipsShownRef.current = true;
+          setTimeout(() => addMessages(botMsg('', {
+            widget: 'quick-reply',
+            questionId: 'family_chips',
+            widgetData: [
+              { value: 'single', label: 'Seul·e',               emoji: '🙋' },
+              { value: 'couple', label: 'En couple',             emoji: '💑' },
+              { value: 'family', label: 'Couple + enfants',      emoji: '👨‍👩‍👧' },
+              { value: 'parent', label: 'Parent solo + enfants', emoji: '👪' },
+            ],
+            consumed: false,
+          })), 300);
+        }
+      }
     } catch (err) {
       console.error('[useV2Conversation]', err);
       setIsTyping(false);
@@ -186,6 +269,11 @@ export function useV2Conversation() {
     }
   }, [inputDisabled, addMessages, mergeSlots, showPricing, quote]);
 
+  const handleSelectChip = useCallback((msgId: string, _questionId: string, _value: string, label: string) => {
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, consumed: true } : m));
+    sendMessage(label);
+  }, [sendMessage]);
+
   return {
     messages,
     slots,
@@ -194,6 +282,9 @@ export function useV2Conversation() {
     inputDisabled,
     sendMessage,
     handleNeedsTuner,
+    handleNeedsMatrix,
+    handleProfileRecap,
+    handleSelectChip,
     continueToBuy,
     requestCallback,
   };

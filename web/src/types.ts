@@ -9,7 +9,9 @@ export type WidgetType =
   | 'quick-estimate'
   | 'document-upload'
   | 'needs-tuner'
-  | 'cta-card';
+  | 'cta-card'
+  | 'needs-matrix'
+  | 'profile-recap';
 
 export interface QuickReplyOption {
   value: string;
@@ -54,13 +56,28 @@ export interface NeedsTunerData {
   dentaire:        number; // 1-3
 }
 
+export interface NeedsMatrixData {
+  hospitalization_need?: string | null;
+  optics_need?:          string | null;
+  dental_need?:          string | null;
+}
+
+export interface ProfileRecapData {
+  date_of_birth:        string;
+  regime:               string;
+  family_composition:   string;
+  hospitalization_need: string;
+  optics_need:          string;
+  dental_need:          string;
+}
+
 export interface ChatMessage {
   id:          string;
   role:        MessageRole;
   content:     string;
   timestamp:   Date;
   widget?:     WidgetType;
-  widgetData?: QuickReplyOption[] | RecapData | QuoteResult | QuickEstimateData | NeedsTunerData | { label: string };
+  widgetData?: QuickReplyOption[] | RecapData | QuoteResult | QuickEstimateData | NeedsTunerData | NeedsMatrixData | ProfileRecapData | { label: string };
   questionId?: string;
   consumed?:   boolean;
 }

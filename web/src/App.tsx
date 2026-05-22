@@ -91,6 +91,8 @@ export default function App() {
                 onDocEnterManually={handleDocEnterManually}
                 onDocSkip={handleDocSkip}
                 onNeedsTuner={handleNeedsTuner}
+                onNeedsMatrix={() => {}}
+                onProfileRecap={() => {}}
                 onContinueToBuy={continueToBuy}
                 onRequestCallback={requestCallback}
               />

@@ -1,4 +1,5 @@
 import { ChatMessage, QuickReplyOption, QuoteResult, QuickEstimateData, NeedsTunerData } from '../types';
+import type { NeedsMatrixData, ProfileRecapData } from '../types';
 import { ConsentCard }          from './ConsentCard';
 import { QuickReply }           from './QuickReply';
 import { CalculatingCard }      from './CalculatingCard';
@@ -6,6 +7,8 @@ import { FormulaComparison }    from './FormulaComparison';
 import { QuickEstimateCard }    from './QuickEstimateCard';
 import { DocumentUploadCard }   from './DocumentUploadCard';
 import { NeedsTuner }           from './NeedsTuner';
+import { NeedsMatrix }          from './NeedsMatrix';
+import { ProfileRecap }         from './ProfileRecap';
 import { CTACard }              from './CTACard';
 import { DALogo }               from './DALogo';
 
@@ -29,6 +32,8 @@ interface Props {
   onDocEnterManually:    (msgId: string) => void;
   onDocSkip:             (msgId: string) => void;
   onNeedsTuner:          (msgId: string, needs: NeedsTunerData) => void;
+  onNeedsMatrix:         (msgId: string, sel: { hospitalization_need: string; optics_need: string; dental_need: string }) => void;
+  onProfileRecap:        (msgId: string) => void;
   onContinueToBuy:       (id: string) => void;
   onRequestCallback:     (id: string) => void;
 }
@@ -37,7 +42,7 @@ export function MessageBubble({
   message,
   onAcceptConsent, onDeclineConsent, onSelectOption,
   onDocUpload, onDocEnterManually, onDocSkip,
-  onNeedsTuner,
+  onNeedsTuner, onNeedsMatrix, onProfileRecap,
   onContinueToBuy, onRequestCallback,
 }: Props) {
   if (message.role === 'user') {
@@ -111,6 +116,20 @@ export function MessageBubble({
           <NeedsTuner
             data={message.widgetData as NeedsTunerData}
             onApply={(needs) => onNeedsTuner(message.id, needs)}
+          />
+        )}
+
+        {!message.consumed && message.widget === 'needs-matrix' && (
+          <NeedsMatrix
+            data={(message.widgetData as NeedsMatrixData) ?? {}}
+            onSubmit={(sel) => onNeedsMatrix(message.id, sel)}
+          />
+        )}
+
+        {!message.consumed && message.widget === 'profile-recap' && (
+          <ProfileRecap
+            data={message.widgetData as ProfileRecapData}
+            onConfirm={() => onProfileRecap(message.id)}
           />
         )}
 

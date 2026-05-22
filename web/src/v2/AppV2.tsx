@@ -3,13 +3,16 @@ import { Sidebar }        from '../components/Sidebar';
 import { MessageBubble }  from '../components/MessageBubble';
 import { TypingIndicator } from '../components/TypingIndicator';
 import { InputBar }       from '../components/InputBar';
+import { WelcomeCard }    from '../components/WelcomeCard';
+import { ProgressBar }    from '../components/ProgressBar';
 import { useSpeech }      from '../hooks/useSpeech';
 import { useV2Conversation } from './hooks/useV2Conversation';
 
 export default function AppV2() {
   const {
-    messages, isTyping, inputDisabled,
-    sendMessage, handleNeedsTuner, continueToBuy, requestCallback,
+    messages, slots, quote, isTyping, inputDisabled,
+    sendMessage, handleNeedsTuner, handleNeedsMatrix, handleProfileRecap, handleSelectChip,
+    continueToBuy, requestCallback,
   } = useV2Conversation();
 
   const { voiceMode, toggleVoiceMode, isSpeaking, speak, stop, ttsError } = useSpeech();
@@ -34,8 +37,13 @@ export default function AppV2() {
 
   useEffect(() => { if (!voiceMode) stop(); }, [voiceMode, stop]);
 
-  // No-op stubs for V1-only props (consent / doc-upload / quick-reply not used in V2)
-  const noop = () => {};
+  // Wrappers to bridge (id: string) signature from MessageBubble to no-arg hooks
+  const handleContinueToBuy = (_id: string) => continueToBuy();
+  const handleRequestCallback = (_id: string) => requestCallback();
+
+  // Compute progress step
+  const step2Done = !!(slots.hospitalization_need && slots.optics_need && slots.dental_need);
+  const progressStep: 1 | 2 | 3 = quote ? 3 : step2Done ? 2 : 1;
 
   return (
     <div className="flex h-full bg-surface text-gray-900 font-sans overflow-hidden">
@@ -50,37 +58,36 @@ export default function AppV2() {
           <span className="text-xs text-muted">DA Assistant · Santé</span>
         </div>
 
+        {/* Progress bar (only when conversation has started) */}
+        {messages.length > 0 && <ProgressBar step={progressStep} />}
+
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 bg-surface">
           <div className="max-w-2xl mx-auto py-6 flex flex-col">
-            {messages.length === 0 && !isTyping && (
-              <div className="flex flex-col items-center justify-center gap-3 mt-16 text-center select-none">
-                <p className="text-lg font-medium text-gray-700">
-                  Bonjour, je suis votre assistant Direct Assurance
-                </p>
-                <p className="text-sm text-muted max-w-sm">
-                  Posez-moi n'importe quelle question sur votre mutuelle santé, ou dites simplement "Bonjour" pour commencer votre devis.
-                </p>
-              </div>
+            {messages.length === 0 && !isTyping ? (
+              <WelcomeCard onStart={() => sendMessage('Bonjour, je souhaite un devis mutuelle santé')} />
+            ) : (
+              <>
+                {messages.map(msg => (
+                  <MessageBubble
+                    key={msg.id}
+                    message={msg}
+                    onAcceptConsent={(_id: string) => {}}
+                    onDeclineConsent={(_id: string) => {}}
+                    onSelectOption={handleSelectChip}
+                    onDocUpload={(_msgId: string, _file: File) => {}}
+                    onDocEnterManually={(_msgId: string) => {}}
+                    onDocSkip={(_msgId: string) => {}}
+                    onNeedsTuner={handleNeedsTuner}
+                    onNeedsMatrix={handleNeedsMatrix}
+                    onProfileRecap={handleProfileRecap}
+                    onContinueToBuy={handleContinueToBuy}
+                    onRequestCallback={handleRequestCallback}
+                  />
+                ))}
+                {isTyping && <TypingIndicator />}
+              </>
             )}
-
-            {messages.map(msg => (
-              <MessageBubble
-                key={msg.id}
-                message={msg}
-                onAcceptConsent={noop}
-                onDeclineConsent={noop}
-                onSelectOption={noop}
-                onDocUpload={noop}
-                onDocEnterManually={noop}
-                onDocSkip={noop}
-                onNeedsTuner={handleNeedsTuner}
-                onContinueToBuy={continueToBuy}
-                onRequestCallback={requestCallback}
-              />
-            ))}
-
-            {isTyping && <TypingIndicator />}
             <div ref={bottomRef} />
           </div>
         </div>
