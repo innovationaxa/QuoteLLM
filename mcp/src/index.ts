@@ -103,6 +103,29 @@ function calculateQuote(args: {
   return { formulas, recommendedId, recommended, age, current_price, current_insurer };
 }
 
+// ─── Concrete examples per formula ───────────────────────────────────────────
+
+const FORMULA_EXAMPLES: Record<string, string[]> = {
+  essentielle: [
+    "🩺 Consultation généraliste (25 €) → Tu paies 1 € (ticket modérateur). La mutuelle complète les 30% non remboursés par la Sécu.",
+    "🏥 Appendicite — 3 jours à l'hôpital → Chambre partagée, forfait journalier (20 €/j) couvert. Dépassements d'honoraires à ta charge : 0 à 300 €.",
+    "👓 Lunettes progressives (~400 €) → Remboursement limité au plafond Sécu (~20 €). Reste à charge : ~380 €.",
+    "🦷 Couronne dentaire (~900 €) → Remboursement 100% BR ≈ 120 €. Reste à charge : ~780 €.",
+  ],
+  essentielle_plus: [
+    "🩺 Consultation généraliste (25 €) → Pareil qu'Essentielle. Tu paies 1 €.",
+    "🏥 Appendicite — 3 jours à l'hôpital → Chambre individuelle incluse : tu économises ~100 €/nuit, soit ~300 € sur 3 jours. Dépassements partiellement couverts.",
+    "👓 Lunettes progressives (~400 €) → Jusqu'à 200 € remboursés (montures + verres). Reste à charge : ~200 €.",
+    "🦷 Couronne dentaire (~900 €) → Remboursement 125% BR ≈ 150 €. Reste à charge : ~750 €.",
+  ],
+  equilibre: [
+    "🩺 Spécialiste secteur 2 (50 €) → Soins courants 120% BR : quasi-totalité des dépassements couverts. Tu paies ~5 € au lieu de 27 €.",
+    "🏥 Opération en clinique privée → Clinique au choix, chambre individuelle garantie, dépassements couverts à 120%. Reste à charge : très faible ou nul.",
+    "👓 Lunettes premium + lentilles (~500 €) → Jusqu'à 300 € remboursés. Lentilles de contact aussi prises en charge chaque année.",
+    "🦷 Couronne + implant dentaire (~900 €) → Remboursement 150% BR ≈ 180 €. Implants partiellement couverts. Idéal pour les soins lourds.",
+  ],
+};
+
 // ─── Pedagogical explanations ─────────────────────────────────────────────────
 
 const EXPLANATIONS: Record<string, Record<string, string>> = {
@@ -208,6 +231,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       lines.push(`- Hospitalisation : ${f.coverage.hospitalisation}`);
       lines.push(`- Optique : ${f.coverage.optique}`);
       lines.push(`- Dentaire : ${f.coverage.dentaire}`);
+      const examples = FORMULA_EXAMPLES[f.id];
+      if (examples) {
+        lines.push('');
+        lines.push('**Exemples concrets du quotidien :**');
+        examples.forEach(ex => lines.push(`- ${ex}`));
+      }
       lines.push('');
     }
     lines.push(`**Âge calculé :** ${result.age} ans`);

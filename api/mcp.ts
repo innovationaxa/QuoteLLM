@@ -70,6 +70,12 @@ function calculateQuote(a: Record<string, any>) {
     lines.push(`- Hospitalisation : ${f.coverage.hospitalisation}`);
     lines.push(`- Optique : ${f.coverage.optique}`);
     lines.push(`- Dentaire : ${f.coverage.dentaire}`);
+    const examples = FORMULA_EXAMPLES[f.id];
+    if (examples) {
+      lines.push('');
+      lines.push('**Exemples concrets du quotidien :**');
+      examples.forEach(ex => lines.push(`- ${ex}`));
+    }
     lines.push('');
   }
   lines.push(`**Âge :** ${age} ans`);
@@ -77,23 +83,46 @@ function calculateQuote(a: Record<string, any>) {
   return lines.join('\n');
 }
 
+// ─── Concrete examples per formula ───────────────────────────────────────────
+
+const FORMULA_EXAMPLES: Record<string, string[]> = {
+  essentielle: [
+    '🩺 Consultation généraliste (25 €) → Tu paies 1 € (ticket modérateur). La mutuelle complète les 30% non remboursés par la Sécu.',
+    '🏥 Appendicite — 3 jours à l\'hôpital → Chambre partagée, forfait journalier (20 €/j) couvert. Dépassements d\'honoraires à ta charge : 0 à 300 €.',
+    '👓 Lunettes progressives (~400 €) → Remboursement limité au plafond Sécu (~20 €). Reste à charge : ~380 €.',
+    '🦷 Couronne dentaire (~900 €) → Remboursement 100% BR ≈ 120 €. Reste à charge : ~780 €.',
+  ],
+  essentielle_plus: [
+    '🩺 Consultation généraliste (25 €) → Pareil qu\'Essentielle. Tu paies 1 €.',
+    '🏥 Appendicite — 3 jours à l\'hôpital → Chambre individuelle incluse : tu économises ~100 €/nuit, soit ~300 € sur 3 jours. Dépassements partiellement couverts.',
+    '👓 Lunettes progressives (~400 €) → Jusqu\'à 200 € remboursés (montures + verres). Reste à charge : ~200 €.',
+    '🦷 Couronne dentaire (~900 €) → Remboursement 125% BR ≈ 150 €. Reste à charge : ~750 €.',
+  ],
+  equilibre: [
+    '🩺 Spécialiste secteur 2 (50 €) → Soins courants 120% BR : quasi-totalité des dépassements couverts. Tu paies ~5 € au lieu de 27 €.',
+    '🏥 Opération en clinique privée → Clinique au choix, chambre individuelle garantie, dépassements couverts à 120%. Reste à charge : très faible ou nul.',
+    '👓 Lunettes premium + lentilles (~500 €) → Jusqu\'à 300 € remboursés. Lentilles de contact aussi prises en charge chaque année.',
+    '🦷 Couronne + implant dentaire (~900 €) → Remboursement 150% BR ≈ 180 €. Implants partiellement couverts. Idéal pour les soins lourds.',
+  ],
+};
+
 // ─── Pedagogical explanations ─────────────────────────────────────────────────
 
 const EXPLANATIONS: Record<string, Record<string, string>> = {
   hospitalisation: {
-    minimum: "Couvre uniquement le remboursement Sécu. Chambre partagée, dépassements à ta charge. Convient si tu es rarement hospitalisé·e.",
-    comfort:  "Chambre individuelle couverte (80–150 €/nuit économisés), lit accompagnant, dépassements partiellement pris en charge. Bon équilibre pour la majorité.",
-    premium:  "Clinique privée de ton choix, dépassements jusqu'à 200%, chambre individuelle dans les établissements premium. Recommandé si tu as des antécédents ou veux le meilleur confort.",
+    minimum: "Le niveau Minimum couvre les soins remboursés par la Sécurité sociale. Tu es en chambre partagée et les dépassements d'honoraires restent à ta charge. Convient si tu es rarement hospitalisé·e et en bonne santé.",
+    comfort:  "Le niveau Confort inclut la chambre individuelle (économie de 80–150 €/nuit), un lit accompagnant pour un proche, et une prise en charge partielle des dépassements d'honoraires. C'est le bon équilibre pour la majorité des assurés.",
+    premium:  "Le niveau Premium te permet de choisir ton établissement privé librement, couvre les dépassements jusqu'à 200%, et inclut la chambre individuelle dans les cliniques haut de gamme. Recommandé si tu as des antécédents médicaux ou que tu veux le meilleur confort.",
   },
   optique: {
-    minimum:  "Montures ~30 € + verres simples dans la limite du remboursement Sécu. Adapté si tu ne portes pas souvent de lunettes.",
-    standard: "Montures ~150 € + verres progressifs couverts, renouvellement tous les 2 ans. Bonne option pour un port quotidien.",
-    enhanced: "Montures haut de gamme (~300 €) + verres premium + lentilles. À choisir si tu dépenses déjà plus de 300 € tous les 2 ans.",
+    minimum:  "Le niveau Minimum prend en charge les verres simples et des montures autour de 30 €, dans la limite du remboursement Sécu. Adapté si tu ne portes pas de lunettes ou si ta vue est stable et tu achètes des montures peu chères.",
+    standard: "Le niveau Standard couvre des montures jusqu'à ~150 € et les verres progressifs, avec renouvellement tous les 2 ans. C'est la bonne option si tu portes des lunettes au quotidien.",
+    enhanced: "Le niveau Renforcé couvre des montures haut de gamme (~300 €), les verres premium, et souvent les lentilles de contact. À choisir si tu dépenses déjà plus de 300 € tous les 2 ans en optique.",
   },
   dentaire: {
-    routine:      "Soins courants : caries, détartrage, obturations. Suffit si ta situation dentaire est stable.",
-    prosthetics:  "Couronnes, bridges, implants partiellement remboursés. Indispensable si tu as des soins lourds prévus.",
-    orthodontics: "Appareils adulte et enfant en plus des prothèses. Nécessaire si un traitement orthodontique est en cours ou planifié.",
+    routine:      "Le niveau Routine couvre les soins courants : caries, détartrage, obturations, soins de canal. Suffit si ta situation dentaire est stable et que tu n'as pas de travaux lourds en vue.",
+    prosthetics:  "Le niveau Prothèses rembourse partiellement couronnes, bridges et implants. Indispensable si tu as des soins prothétiques prévus ou récurrents — les coûts peuvent facilement dépasser 1 000 €.",
+    orthodontics: "Le niveau Orthodontie inclut les appareils adulte et enfant, en plus des prothèses. Nécessaire si un traitement orthodontique est en cours ou planifié dans ton foyer.",
   },
 };
 
