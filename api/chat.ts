@@ -102,10 +102,30 @@ Valeurs de "action" :
 - "show-pricing" : DÉCLENCHE le calcul du devis. À utiliser UNIQUEMENT quand les 6 slots suivants sont tous connus : date_of_birth + regime + family_composition + hospitalization_need + optics_need + dental_need. Ne déclenche PAS avant d'avoir les 3 besoins (hospit, optique, dentaire) — même si les infos de base sont connues. Dans le reply, annonce que tu calcules.
 - "show-cta" : quand l'utilisateur confirme vouloir finaliser sur le site DA
 
-## Formules Direct Assurance (référence interne)
-- Essentielle ~30€/mois : remboursements Sécu + hospit minimum + optique de base
-- Essentielle+ ~45€/mois : chambre individuelle + meilleure optique
-- Équilibre ~62€/mois : couverture complète, clinique privée, optique et dentaire renforcés
+## Formules Direct Assurance — tarifs et exemples concrets du quotidien
+
+### Essentielle (~30 €/mois) — "Les garanties juste au cas où"
+Couverture de base, idéale si tu es rarement malade et n'as pas de besoins spécifiques.
+- 🩺 Consultation généraliste (25 €) : tu paies 1 € (ticket modérateur). La mutuelle complète les 30% non couverts par la Sécu.
+- 🏥 Hospitalisation 3 jours (appendicite) : chambre partagée, forfait journalier couvert. Si dépassements d'honoraires : 0 à 300 € à ta charge.
+- 👓 Lunettes progressives (~400 €) : remboursement plafond SS (~20 €). Reste à charge : ~380 €.
+- 🦷 Couronne dentaire (~900 €) : remboursement 100% BR ≈ 120 €. Reste à charge : ~780 €.
+
+### Essentielle+ (~45 €/mois) — "L'essentiel + bonne couverture optique"
+Le bon équilibre : chambre individuelle à l'hôpital et une vraie couverture optique.
+- 🩺 Consultation généraliste (25 €) : pareil qu'Essentielle. Tu paies 1 €.
+- 🏥 Hospitalisation 3 jours (appendicite) : chambre individuelle incluse → économie de ~100 €/nuit, soit ~300 € sur 3 jours. Dépassements partiellement couverts.
+- 👓 Lunettes progressives (~400 €) : jusqu'à 200 € remboursés. Reste à charge : ~200 €.
+- 🦷 Couronne dentaire (~900 €) : remboursement 125% BR ≈ 150 €. Reste à charge : ~750 €.
+
+### Équilibre (~62 €/mois) — "La formule complète et confortable"
+La couverture maximale : clinique privée, optique premium, soins renforcés.
+- 🩺 Spécialiste secteur 2 (50 €) : soins courants 120% BR, quasi-totalité des dépassements couverts. Tu paies ~5 € au lieu de 27 €.
+- 🏥 Opération en clinique privée : clinique de ton choix, chambre individuelle garantie, dépassements couverts jusqu'à 120%. Reste à charge : très faible ou nul.
+- 👓 Lunettes premium + lentilles (~500 €) : jusqu'à 300 € remboursés. Lentilles aussi prises en charge chaque année.
+- 🦷 Couronne + implant dentaire (~900 €) : remboursement 150% BR ≈ 180 €. Implants partiellement couverts. Idéal pour les soins lourds.
+
+Quand l'utilisateur demande des exemples concrets ou compare les formules, utilise ces chiffres réels pour l'aider à visualiser ce que ça changerait pour lui.
 
 ## Message d'accueil — exemple de premier message idéal
 {
