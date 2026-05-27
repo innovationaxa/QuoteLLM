@@ -144,9 +144,18 @@ const EXAMPLES: Record<string, Array<{ icon: string; scenario: string; remaining
   ],
 };
 
+// ─── Chart URL builder ────────────────────────────────────────────────────────
+
+function chartUrl(base: string, type: string, params: Record<string, string | undefined>): string {
+  const u = new URL(`${base}/api/chart`);
+  u.searchParams.set('type', type);
+  for (const [k, v] of Object.entries(params)) { if (v != null) u.searchParams.set(k, v); }
+  return u.toString();
+}
+
 // ─── Markdown renderers ───────────────────────────────────────────────────────
 
-function renderQuoteMd(a: Record<string, any>): string {
+function renderQuoteMd(a: Record<string, any>, baseUrl = 'https://quote-llm-six.vercel.app'): string {
   const { age, recommendedId, formulas } = calcFormulas(a);
   const REGIME_FR: Record<string, string> = {
     general: 'Salarie', independent: 'TNS', agriculture: 'Agriculteur',
@@ -193,10 +202,22 @@ function renderQuoteMd(a: Record<string, any>): string {
   lines.push(`---`);
   lines.push(`> Devis complet et souscription : https://quote-llm-six.vercel.app`);
   lines.push(`> _Tarifs indicatifs · Non contractuels · Delai de carence applicable_`);
+
+  const url = chartUrl(baseUrl, 'quote', {
+    dob:    a.date_of_birth,
+    regime: a.regime,
+    family: a.family_composition,
+    hospit: a.hospitalization_need,
+    optics: a.optics_need,
+    dental: a.dental_need,
+    price:   a.current_price != null ? String(a.current_price) : undefined,
+    insurer: a.current_insurer ?? undefined,
+  });
+  lines.push('', `![Votre devis Direct Assurance](${url})`);
   return lines.join('\n');
 }
 
-function renderSimulateMd(scenario: string, formulaFilter?: string): string {
+function renderSimulateMd(scenario: string, formulaFilter?: string, baseUrl = 'https://quote-llm-six.vercel.app'): string {
   const sc = SCENARIOS[scenario];
   if (!sc) return `Scenario inconnu : ${scenario}. Disponibles : ${Object.keys(SCENARIOS).join(', ')}`;
 
@@ -223,6 +244,12 @@ function renderSimulateMd(scenario: string, formulaFilter?: string): string {
 
   lines.push('');
   lines.push(`_Valeurs indicatives · tarifs conventionnels 2024 · Non contractuelles_`);
+
+  const url = chartUrl(baseUrl, 'simulate', {
+    scenario,
+    formula: formulaFilter,
+  });
+  lines.push('', `![Simulation remboursement](${url})`);
   return lines.join('\n');
 }
 
@@ -490,7 +517,7 @@ function rpcErr(id: any, code: number, message: string) { return { jsonrpc: '2.0
 
 async function runTool(name: string, args: Record<string, any>, baseUrl: string) {
   if (name === 'calculate_da_quote') {
-    const text = renderQuoteMd(args);
+    const text = renderQuoteMd(args, baseUrl);
     const svg  = generateQuoteSVG(args);
     const content: any[] = [{ type: 'text', text }];
     if (svg) content.push({ type: 'image', data: svgToBase64(svg), mimeType: 'image/svg+xml' });
@@ -499,7 +526,7 @@ async function runTool(name: string, args: Record<string, any>, baseUrl: string)
 
   if (name === 'simulate_reimbursement') {
     const { scenario, formula } = args;
-    const text = renderSimulateMd(scenario, formula);
+    const text = renderSimulateMd(scenario, formula, baseUrl);
     const svg  = generateReimbursementSVG(scenario, formula);
     const content: any[] = [{ type: 'text', text }];
     if (svg) content.push({ type: 'image', data: svgToBase64(svg), mimeType: 'image/svg+xml' });
