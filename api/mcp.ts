@@ -126,6 +126,77 @@ const EXPLANATIONS: Record<string, Record<string, string>> = {
   },
 };
 
+// ─── Reimbursement simulation data ───────────────────────────────────────────
+
+const SCENARIOS: Record<string, { label: string; cost: number }> = {
+  dental_crown:   { label: 'Couronne dentaire',       cost: 900  },
+  optician_prog:  { label: 'Lunettes progressives',   cost: 400  },
+  specialist:     { label: 'Spécialiste secteur 2',   cost: 50   },
+  gp_visit:       { label: 'Médecin généraliste',     cost: 25   },
+  hospital_3d:    { label: 'Hospitalisation 3 nuits', cost: 1200 },
+  dental_implant: { label: 'Implant dentaire',        cost: 1500 },
+};
+
+const REIMBURSEMENT: Record<string, Record<string, { secu: number; mutuelle: number; remaining: number }>> = {
+  gp_visit: {
+    essentielle:      { secu: 17, mutuelle: 7,   remaining: 1   },
+    essentielle_plus: { secu: 17, mutuelle: 7,   remaining: 1   },
+    equilibre:        { secu: 17, mutuelle: 7,   remaining: 1   },
+  },
+  specialist: {
+    essentielle:      { secu: 16, mutuelle: 7,   remaining: 27  },
+    essentielle_plus: { secu: 16, mutuelle: 15,  remaining: 19  },
+    equilibre:        { secu: 16, mutuelle: 28,  remaining: 6   },
+  },
+  dental_crown: {
+    essentielle:      { secu: 84, mutuelle: 36,  remaining: 780 },
+    essentielle_plus: { secu: 84, mutuelle: 66,  remaining: 750 },
+    equilibre:        { secu: 84, mutuelle: 96,  remaining: 720 },
+  },
+  optician_prog: {
+    essentielle:      { secu: 5,  mutuelle: 15,  remaining: 380 },
+    essentielle_plus: { secu: 5,  mutuelle: 195, remaining: 200 },
+    equilibre:        { secu: 5,  mutuelle: 295, remaining: 100 },
+  },
+  hospital_3d: {
+    essentielle:      { secu: 900, mutuelle: 120, remaining: 180 },
+    essentielle_plus: { secu: 900, mutuelle: 240, remaining: 60  },
+    equilibre:        { secu: 900, mutuelle: 290, remaining: 10  },
+  },
+  dental_implant: {
+    essentielle:      { secu: 0, mutuelle: 0,   remaining: 1500 },
+    essentielle_plus: { secu: 0, mutuelle: 100, remaining: 1400 },
+    equilibre:        { secu: 0, mutuelle: 350, remaining: 1150 },
+  },
+};
+
+function simulateReimbursement(scenario: string, formulaFilter?: string): string {
+  const sc = SCENARIOS[scenario];
+  if (!sc) return `Scénario inconnu : ${scenario}. Valeurs disponibles : ${Object.keys(SCENARIOS).join(', ')}`;
+
+  const formulas = formulaFilter
+    ? [formulaFilter]
+    : ['essentielle', 'essentielle_plus', 'equilibre'];
+
+  const lines: string[] = [
+    `## Simulation : ${sc.label} (coût total ~${sc.cost} €)`,
+    '',
+    '| Formule | Sécu | Mutuelle | **Reste à charge** |',
+    '|---|---|---|---|',
+  ];
+
+  for (const f of formulas) {
+    const row = REIMBURSEMENT[scenario]?.[f];
+    if (!row) continue;
+    const name = f === 'essentielle' ? 'Essentielle' : f === 'essentielle_plus' ? 'Essentielle +' : 'Équilibre';
+    const pct  = Math.round(((sc.cost - row.remaining) / sc.cost) * 100);
+    lines.push(`| ${name} | ${row.secu} € | ${row.mutuelle} € | **${row.remaining} €** (${pct}% couvert) |`);
+  }
+
+  lines.push('', '_Valeurs indicatives basées sur les tarifs conventionnels 2024. Non contractuelles._');
+  return lines.join('\n');
+}
+
 // ─── Tools definition ─────────────────────────────────────────────────────────
 
 const TOOLS = [
@@ -160,6 +231,26 @@ const TOOLS = [
     },
   },
   {
+    name: 'simulate_reimbursement',
+    description: "Simule le remboursement d'un soin courant par chaque formule Direct Assurance (Sécu + mutuelle + reste à charge). Idéal pour comparer les formules sur un cas concret.",
+    inputSchema: {
+      type: 'object',
+      properties: {
+        scenario: {
+          type: 'string',
+          enum: ['dental_crown','optician_prog','specialist','gp_visit','hospital_3d','dental_implant'],
+          description: "Type de soin : dental_crown (couronne ~900€), optician_prog (lunettes prog. ~400€), specialist (spécialiste sect.2 ~50€), gp_visit (généraliste ~25€), hospital_3d (hospit. 3 nuits ~1200€), dental_implant (implant ~1500€)",
+        },
+        formula: {
+          type: 'string',
+          enum: ['essentielle','essentielle_plus','equilibre'],
+          description: "Formule spécifique (optionnel — si absent, compare les 3 formules)",
+        },
+      },
+      required: ['scenario'],
+    },
+  },
+  {
     name: 'chat_da_advisor',
     description: "Envoie un message au conseiller IA Direct Assurance (GPT-5.5). Pour les questions ouvertes ou la collecte d'infos manquantes.",
     inputSchema: {
@@ -186,6 +277,11 @@ function err(id: any, code: number, message: string) {
 // ─── Tool execution ───────────────────────────────────────────────────────────
 
 async function runTool(name: string, args: Record<string, any>, baseUrl: string) {
+  if (name === 'simulate_reimbursement') {
+    const { scenario, formula } = args;
+    return { content: [{ type: 'text', text: simulateReimbursement(scenario, formula) }] };
+  }
+
   if (name === 'calculate_da_quote') {
     return { content: [{ type: 'text', text: calculateQuote(args) }] };
   }
