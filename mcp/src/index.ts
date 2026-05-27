@@ -6,54 +6,34 @@ import {
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 
-// ─── Pricing logic (ported from web/src/data/pricing.ts) ─────────────────────
+// ─── Pricing logic ─────────────────────────────────────────────────────────────
 
 const FORMULA_CONFIG = [
   {
-    id: 'essentielle', name: 'Essentielle',
-    tagline: 'Les garanties juste au cas où',
-    coverage: {
-      soins:           'Soins courants 100% BR',
-      hospitalisation: 'Hospitalisation 100% BR',
-      optique:         'Optique 100% (plafond SS)',
-      dentaire:        'Dentaire 100% BR',
-    },
+    id: 'essentielle', name: 'Essentielle', color: '#64748b',
+    tagline: 'Les garanties juste au cas ou',
+    coverage: { soins: 'Soins courants 100% BR', hospitalisation: 'Hospitalisation 100% BR', optique: 'Optique 100% (plafond SS)', dentaire: 'Dentaire 100% BR' },
   },
   {
-    id: 'essentielle_plus', name: 'Essentielle +',
+    id: 'essentielle_plus', name: 'Essentielle +', color: '#475569',
     tagline: "L'essentiel + bonne couverture optique",
-    coverage: {
-      soins:           'Soins courants 100% BR',
-      hospitalisation: 'Hospitalisation 100% + chambre individuelle',
-      optique:         "Optique jusqu'à 200 €/an",
-      dentaire:        "Dentaire jusqu'à 125% BR",
-    },
+    coverage: { soins: 'Soins courants 100% BR', hospitalisation: 'Chambre individuelle incluse', optique: "Optique jusqu'a 200 EUR/an", dentaire: 'Dentaire jusqu a 125% BR' },
   },
   {
-    id: 'equilibre', name: 'Équilibre',
-    tagline: 'La formule complète et confortable',
-    coverage: {
-      soins:           'Soins courants 120% BR',
-      hospitalisation: 'Hospitalisation 120% + clinique privée',
-      optique:         "Optique jusqu'à 300 €/an",
-      dentaire:        "Dentaire jusqu'à 150% BR",
-    },
+    id: 'equilibre', name: 'Equilibre', color: '#E30613',
+    tagline: 'La formule complete et confortable',
+    coverage: { soins: 'Soins courants 120% BR', hospitalisation: 'Clinique privee + 120% BR', optique: "Optique jusqu'a 300 EUR/an", dentaire: 'Dentaire jusqu a 150% BR' },
   },
 ];
 
-const BASE: Record<string, number> = { essentielle: 30, essentielle_plus: 45, equilibre: 62 };
-const REGIME_MULT: Record<string, number> = {
-  general: 1.0, independent: 1.15, agriculture: 0.95,
-  student: 0.8, alsace_moselle: 0.9, other: 1.0,
-};
-const FAMILY_MULT: Record<string, number> = {
-  single: 1.0, couple: 1.85, family: 2.15, parent: 1.3,
-};
+const BASE: Record<string, number>        = { essentielle: 30, essentielle_plus: 45, equilibre: 62 };
+const REGIME_MULT: Record<string, number> = { general: 1.0, independent: 1.15, agriculture: 0.95, student: 0.8, alsace_moselle: 0.9, other: 1.0 };
+const FAMILY_MULT: Record<string, number> = { single: 1.0, couple: 1.85, family: 2.15, parent: 1.3 };
 
 function getAge(dob: string): number {
   const [d, m, y] = dob.split('/').map(Number);
   const date = new Date(y, m - 1, d);
-  const now = new Date();
+  const now  = new Date();
   let age = now.getFullYear() - date.getFullYear();
   if (now < new Date(now.getFullYear(), date.getMonth(), date.getDate())) age--;
   return Math.max(0, age);
@@ -64,100 +44,40 @@ function getRecommendedId(hospit: string, optics: string, dental: string): strin
   if (hospit === 'premium') score += 3; else if (hospit === 'comfort') score += 2;
   if (optics === 'enhanced') score += 2; else if (optics === 'standard') score += 1;
   if (dental === 'orthodontics') score += 2; else if (dental === 'prosthetics') score += 1;
-  if (score >= 5) return 'equilibre';
-  if (score >= 2) return 'essentielle_plus';
-  return 'essentielle';
+  return score >= 5 ? 'equilibre' : score >= 2 ? 'essentielle_plus' : 'essentielle';
 }
 
-function calculateQuote(args: {
-  date_of_birth: string;
-  regime: string;
-  family_composition: string;
-  hospitalization_need: string;
-  optics_need: string;
-  dental_need: string;
-  current_price?: number;
-  current_insurer?: string;
-}) {
-  const { date_of_birth, regime, family_composition, hospitalization_need, optics_need, dental_need, current_price, current_insurer } = args;
-  const recommendedId = getRecommendedId(hospitalization_need, optics_need, dental_need);
-  const age     = getAge(date_of_birth);
+function calcFormulas(a: Record<string, any>) {
+  const recommendedId = getRecommendedId(a.hospitalization_need, a.optics_need, a.dental_need);
+  const age     = getAge(a.date_of_birth);
   const ageLoad = 1 + Math.max(0, age - 30) * 0.005;
-  const regMult = REGIME_MULT[regime] ?? 1.0;
-  const famMult = FAMILY_MULT[family_composition] ?? 1.0;
-
-  const formulas = FORMULA_CONFIG.map(config => {
-    const base    = BASE[config.id];
-    const monthly = Math.round(base * ageLoad * regMult * famMult * 100) / 100;
-    const saving  = current_price ? Math.round((current_price - monthly) * 10) / 10 : undefined;
-    return {
-      ...config,
-      recommended:    config.id === recommendedId,
-      monthlyPremium: monthly,
-      annualPremium:  Math.round(monthly * 12 * 100) / 100,
-      monthlySaving:  saving,
-    };
-  });
-
-  const recommended = formulas.find(f => f.recommended)!;
-  return { formulas, recommendedId, recommended, age, current_price, current_insurer };
+  const regMult = REGIME_MULT[a.regime] ?? 1.0;
+  const famMult = FAMILY_MULT[a.family_composition] ?? 1.0;
+  const curP    = a.current_price ? parseFloat(a.current_price) : undefined;
+  return {
+    age,
+    recommendedId,
+    formulas: FORMULA_CONFIG.map(c => {
+      const monthly = Math.round(BASE[c.id] * ageLoad * regMult * famMult * 100) / 100;
+      return { ...c, recommended: c.id === recommendedId, monthlyPremium: monthly,
+        annualPremium: Math.round(monthly * 12 * 100) / 100,
+        monthlySaving: curP !== undefined ? Math.round((curP - monthly) * 10) / 10 : undefined };
+    }),
+  };
 }
 
-// ─── Concrete examples per formula ───────────────────────────────────────────
+// ─── Reimbursement data ───────────────────────────────────────────────────────
 
-const FORMULA_EXAMPLES: Record<string, string[]> = {
-  essentielle: [
-    "🩺 Consultation généraliste (25 €) → Tu paies 1 € (ticket modérateur). La mutuelle complète les 30% non remboursés par la Sécu.",
-    "🏥 Appendicite — 3 jours à l'hôpital → Chambre partagée, forfait journalier (20 €/j) couvert. Dépassements d'honoraires à ta charge : 0 à 300 €.",
-    "👓 Lunettes progressives (~400 €) → Remboursement limité au plafond Sécu (~20 €). Reste à charge : ~380 €.",
-    "🦷 Couronne dentaire (~900 €) → Remboursement 100% BR ≈ 120 €. Reste à charge : ~780 €.",
-  ],
-  essentielle_plus: [
-    "🩺 Consultation généraliste (25 €) → Pareil qu'Essentielle. Tu paies 1 €.",
-    "🏥 Appendicite — 3 jours à l'hôpital → Chambre individuelle incluse : tu économises ~100 €/nuit, soit ~300 € sur 3 jours. Dépassements partiellement couverts.",
-    "👓 Lunettes progressives (~400 €) → Jusqu'à 200 € remboursés (montures + verres). Reste à charge : ~200 €.",
-    "🦷 Couronne dentaire (~900 €) → Remboursement 125% BR ≈ 150 €. Reste à charge : ~750 €.",
-  ],
-  equilibre: [
-    "🩺 Spécialiste secteur 2 (50 €) → Soins courants 120% BR : quasi-totalité des dépassements couverts. Tu paies ~5 € au lieu de 27 €.",
-    "🏥 Opération en clinique privée → Clinique au choix, chambre individuelle garantie, dépassements couverts à 120%. Reste à charge : très faible ou nul.",
-    "👓 Lunettes premium + lentilles (~500 €) → Jusqu'à 300 € remboursés. Lentilles de contact aussi prises en charge chaque année.",
-    "🦷 Couronne + implant dentaire (~900 €) → Remboursement 150% BR ≈ 180 €. Implants partiellement couverts. Idéal pour les soins lourds.",
-  ],
+const SCENARIOS: Record<string, { icon: string; label: string; cost: number }> = {
+  dental_crown:   { icon: '🦷', label: 'Couronne dentaire',       cost: 900  },
+  optician_prog:  { icon: '👓', label: 'Lunettes progressives',   cost: 400  },
+  specialist:     { icon: '👨‍⚕️', label: 'Specialiste secteur 2',   cost: 50   },
+  gp_visit:       { icon: '🩺', label: 'Medecin generaliste',     cost: 25   },
+  hospital_3d:    { icon: '🏥', label: 'Hospitalisation 3 nuits', cost: 1200 },
+  dental_implant: { icon: '🦷', label: 'Implant dentaire',        cost: 1500 },
 };
 
-// ─── Pedagogical explanations ─────────────────────────────────────────────────
-
-const EXPLANATIONS: Record<string, Record<string, string>> = {
-  hospitalisation: {
-    minimum:  "Le niveau Minimum couvre les soins remboursés par la Sécurité sociale. Tu es en chambre partagée et les dépassements d'honoraires restent à ta charge. Convient si tu es rarement hospitalisé·e et en bonne santé.",
-    comfort:  "Le niveau Confort inclut la chambre individuelle (économie de 80–150 €/nuit), un lit accompagnant pour un proche, et une prise en charge partielle des dépassements d'honoraires. C'est le bon équilibre pour la majorité des assurés.",
-    premium:  "Le niveau Premium te permet de choisir ton établissement privé librement, couvre les dépassements jusqu'à 200%, et inclut la chambre individuelle dans les cliniques haut de gamme. Recommandé si tu as des antécédents médicaux ou que tu veux le meilleur confort.",
-  },
-  optique: {
-    minimum:  "Le niveau Minimum prend en charge les verres simples et des montures autour de 30 €, dans la limite du remboursement Sécu. Adapté si tu ne portes pas de lunettes ou si ta vue est stable et tu achètes des montures peu chères.",
-    standard: "Le niveau Standard couvre des montures jusqu'à ~150 € et les verres progressifs, avec renouvellement tous les 2 ans. C'est la bonne option si tu portes des lunettes au quotidien.",
-    enhanced: "Le niveau Renforcé couvre des montures haut de gamme (~300 €), les verres premium, et souvent les lentilles de contact. À choisir si tu dépenses déjà plus de 300 € tous les 2 ans en optique.",
-  },
-  dentaire: {
-    routine:      "Le niveau Routine couvre les soins courants : caries, détartrage, obturations, soins de canal. Suffit si ta situation dentaire est stable et que tu n'as pas de travaux lourds en vue.",
-    prosthetics:  "Le niveau Prothèses rembourse partiellement couronnes, bridges et implants. Indispensable si tu as des soins prothétiques prévus ou récurrents — les coûts peuvent facilement dépasser 1 000 €.",
-    orthodontics: "Le niveau Orthodontie inclut les appareils adulte et enfant, en plus des prothèses. Nécessaire si un traitement orthodontique est en cours ou planifié dans ton foyer.",
-  },
-};
-
-// ─── Reimbursement simulation data ───────────────────────────────────────────
-
-const SCENARIOS: Record<string, { label: string; cost: number }> = {
-  dental_crown:   { label: 'Couronne dentaire',       cost: 900  },
-  optician_prog:  { label: 'Lunettes progressives',   cost: 400  },
-  specialist:     { label: 'Spécialiste secteur 2',   cost: 50   },
-  gp_visit:       { label: 'Médecin généraliste',     cost: 25   },
-  hospital_3d:    { label: 'Hospitalisation 3 nuits', cost: 1200 },
-  dental_implant: { label: 'Implant dentaire',        cost: 1500 },
-};
-
-const REIMBURSEMENT: Record<string, Record<string, { secu: number; mutuelle: number; remaining: number }>> = {
+const REIMB: Record<string, Record<string, { secu: number; mutuelle: number; remaining: number }>> = {
   gp_visit: {
     essentielle:      { secu: 17, mutuelle: 7,   remaining: 1   },
     essentielle_plus: { secu: 17, mutuelle: 7,   remaining: 1   },
@@ -190,37 +110,293 @@ const REIMBURSEMENT: Record<string, Record<string, { secu: number; mutuelle: num
   },
 };
 
-function simulateReimbursement(scenario: string, formulaFilter?: string): string {
-  const sc = SCENARIOS[scenario];
-  if (!sc) return `Scénario inconnu : ${scenario}. Valeurs disponibles : ${Object.keys(SCENARIOS).join(', ')}`;
+// ─── Rich text helpers ────────────────────────────────────────────────────────
 
-  const formulas = formulaFilter
-    ? [formulaFilter]
-    : ['essentielle', 'essentielle_plus', 'equilibre'];
+function pb(pct: number, w = 14): string {
+  const n = Math.max(0, Math.min(w, Math.round(pct / 100 * w)));
+  return '█'.repeat(n) + '░'.repeat(w - n);
+}
+
+function fmt(n: number): string {
+  return n.toFixed(2).replace('.', ',');
+}
+
+const FORMULA_LABELS: Record<string, { icon: string }> = {
+  essentielle:      { icon: '⚪' },
+  essentielle_plus: { icon: '🟡' },
+  equilibre:        { icon: '🔴' },
+};
+
+const EXAMPLES: Record<string, Array<{ icon: string; scenario: string; remaining: number }>> = {
+  essentielle:      [
+    { icon: '🦷', scenario: 'Couronne dentaire (900 EUR)', remaining: 780 },
+    { icon: '👓', scenario: 'Lunettes progressives (400 EUR)', remaining: 380 },
+    { icon: '🏥', scenario: 'Hospit. 3 nuits (1200 EUR)', remaining: 180 },
+  ],
+  essentielle_plus: [
+    { icon: '🦷', scenario: 'Couronne dentaire (900 EUR)', remaining: 750 },
+    { icon: '👓', scenario: 'Lunettes progressives (400 EUR)', remaining: 200 },
+    { icon: '🏥', scenario: 'Hospit. 3 nuits (1200 EUR)', remaining: 60  },
+  ],
+  equilibre: [
+    { icon: '🦷', scenario: 'Couronne dentaire (900 EUR)', remaining: 720  },
+    { icon: '👓', scenario: 'Lunettes progressives (400 EUR)', remaining: 100 },
+    { icon: '🏥', scenario: 'Hospit. 3 nuits (1200 EUR)', remaining: 10  },
+  ],
+};
+
+// ─── Markdown renderers ───────────────────────────────────────────────────────
+
+function renderQuoteMd(a: Record<string, any>): string {
+  const { age, formulas } = calcFormulas(a);
+  const REGIME_FR: Record<string, string> = {
+    general: 'Salarie', independent: 'TNS', agriculture: 'Agriculteur',
+    student: 'Etudiant', alsace_moselle: 'Alsace-Moselle', other: 'Autre',
+  };
+  const FAM_FR: Record<string, string> = {
+    single: 'Seul(e)', couple: 'Couple', family: 'Famille', parent: 'Parent solo',
+  };
 
   const lines: string[] = [
-    `## Simulation : ${sc.label} (coût total ~${sc.cost} €)`,
+    `## Devis Direct Assurance`,
+    `**Profil :** ${age} ans · ${REGIME_FR[a.regime] ?? a.regime} · ${FAM_FR[a.family_composition] ?? a.family_composition}${a.current_insurer ? ` · Actuel : ${a.current_insurer}` : ''}`,
     '',
-    '| Formule | Sécu | Mutuelle | **Reste à charge** |',
-    '|---|---|---|---|',
   ];
 
   for (const f of formulas) {
-    const row = REIMBURSEMENT[scenario]?.[f];
-    if (!row) continue;
-    const name = f === 'essentielle' ? 'Essentielle' : f === 'essentielle_plus' ? 'Essentielle +' : 'Équilibre';
-    const pct  = Math.round(((sc.cost - row.remaining) / sc.cost) * 100);
-    lines.push(`| ${name} | ${row.secu} € | ${row.mutuelle} € | **${row.remaining} €** (${pct}% couvert) |`);
+    const fl   = FORMULA_LABELS[f.id];
+    const star = f.recommended ? ' — ⭐ **RECOMMANDEE**' : '';
+    lines.push(`---`);
+    lines.push(`### ${fl.icon} ${f.name}${star}`);
+    lines.push(`**${fmt(f.monthlyPremium)} EUR/mois** · ${fmt(f.annualPremium)} EUR/an`);
+    if (f.monthlySaving !== undefined) {
+      const sign  = f.monthlySaving >= 0 ? '+ ' : '';
+      const emoji = f.monthlySaving >= 5 ? '💰' : f.monthlySaving < -5 ? '📈' : '≈';
+      lines.push(`${emoji} ${sign}${f.monthlySaving} EUR/mois vs contrat actuel`);
+    }
+    lines.push('');
+    lines.push(`| Garantie | Couverture |`);
+    lines.push(`|---|---|`);
+    lines.push(`| 🩺 Soins | ${f.coverage.soins} |`);
+    lines.push(`| 🏥 Hospit. | ${f.coverage.hospitalisation} |`);
+    lines.push(`| 👓 Optique | ${f.coverage.optique} |`);
+    lines.push(`| 🦷 Dentaire | ${f.coverage.dentaire} |`);
+    lines.push('');
+    lines.push(`**Exemples concrets :**`);
+    for (const ex of (EXAMPLES[f.id] ?? [])) {
+      const cost = parseInt(ex.scenario.match(/\((\d+)/)?.[1] ?? '0');
+      const pct  = cost > 0 ? Math.round(((cost - ex.remaining) / cost) * 100) : 0;
+      lines.push(`- ${ex.icon} ${ex.scenario} → reste **${ex.remaining} EUR** \`${pb(pct, 12)}\` ${pct}%`);
+    }
+    lines.push('');
   }
 
-  lines.push('', '_Valeurs indicatives basées sur les tarifs conventionnels 2024. Non contractuelles._');
+  lines.push(`---`);
+  lines.push(`> Devis complet et souscription : https://quote-llm-six.vercel.app`);
+  lines.push(`> _Tarifs indicatifs · Non contractuels · Delai de carence applicable_`);
   return lines.join('\n');
 }
+
+function renderSimulateMd(scenario: string, formulaFilter?: string): string {
+  const sc = SCENARIOS[scenario];
+  if (!sc) return `Scenario inconnu : ${scenario}. Disponibles : ${Object.keys(SCENARIOS).join(', ')}`;
+
+  const formulas = formulaFilter
+    ? FORMULA_CONFIG.filter(f => f.id === formulaFilter)
+    : FORMULA_CONFIG;
+
+  const lines: string[] = [
+    `## ${sc.icon} Simulation : ${sc.label}`,
+    `**Cout total estime :** ${sc.cost} EUR`,
+    '',
+    `| Formule | Secu | Mutuelle | **Reste a charge** | Couverture |`,
+    `|---|---|---|---|---|`,
+  ];
+
+  for (const f of formulas) {
+    const row  = REIMB[scenario]?.[f.id];
+    if (!row) continue;
+    const pct  = Math.round(((sc.cost - row.remaining) / sc.cost) * 100);
+    const star = f.id === 'equilibre' ? ' ⭐' : '';
+    const remColor = row.remaining < 50 ? '✅' : row.remaining < 300 ? '⚠️' : '🔴';
+    lines.push(`| ${f.name}${star} | ${row.secu} EUR | ${row.mutuelle} EUR | ${remColor} **${row.remaining} EUR** | \`${pb(pct, 10)}\` ${pct}% |`);
+  }
+
+  lines.push('');
+  lines.push(`_Valeurs indicatives · tarifs conventionnels 2024 · Non contractuelles_`);
+  return lines.join('\n');
+}
+
+// ─── SVG generators ───────────────────────────────────────────────────────────
+
+function xe(s: string | number): string {
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/EUR/g, '&#8364;').replace(/\./g, ',');
+}
+
+function svgToBase64(svg: string): string {
+  return Buffer.from(svg, 'utf8').toString('base64');
+}
+
+function generateQuoteSVG(a: Record<string, any>): string {
+  const { age, formulas } = calcFormulas(a);
+  const W = 720; const H = 440;
+  const CW = 220; const CH = 370; const GAP = 11; const TOP = 58; const LEFT = 14;
+
+  let cards = '';
+  formulas.forEach((f, i) => {
+    const x = LEFT + i * (CW + GAP);
+    const y = TOP;
+    const isRec = f.recommended;
+    const col = f.color;
+
+    cards += `<rect x="${x+2}" y="${y+2}" width="${CW}" height="${CH}" fill="rgba(0,0,0,0.06)" rx="14"/>`;
+    cards += `<rect x="${x}" y="${y}" width="${CW}" height="${CH}" fill="white" rx="14" stroke="${isRec ? '#E30613' : '#e5e7eb'}" stroke-width="${isRec ? 2 : 1}"/>`;
+
+    let hTop = y;
+    if (isRec) {
+      cards += `<rect x="${x}" y="${y}" width="${CW}" height="22" fill="${col}" rx="14"/>`;
+      cards += `<rect x="${x}" y="${y+10}" width="${CW}" height="12" fill="${col}"/>`;
+      cards += `<text x="${x + CW/2}" y="${y+15}" text-anchor="middle" fill="white" font-size="10" font-weight="700" font-family="system-ui,sans-serif">&#9733; RECOMMANDEE</text>`;
+      hTop = y + 22;
+    }
+
+    const hH = 44;
+    cards += `<rect x="${x}" y="${hTop}" width="${CW}" height="${hH}" fill="${col}" rx="${isRec ? 0 : 14}"/>`;
+    if (!isRec) cards += `<rect x="${x}" y="${hTop + hH - 14}" width="${CW}" height="14" fill="${col}"/>`;
+    cards += `<text x="${x + CW/2}" y="${hTop + 18}" text-anchor="middle" fill="white" font-size="13" font-weight="700" font-family="system-ui,sans-serif">${xe(f.name)}</text>`;
+    cards += `<text x="${x + CW/2}" y="${hTop + 33}" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-size="9" font-family="system-ui,sans-serif">${xe(f.tagline.substring(0, 34))}</text>`;
+
+    const priceY = hTop + hH + 6;
+    cards += `<text x="${x + CW/2}" y="${priceY + 24}" text-anchor="middle" fill="${col}" font-size="24" font-weight="800" font-family="system-ui,sans-serif">${xe(fmt(f.monthlyPremium))} &#8364;</text>`;
+    cards += `<text x="${x + CW/2}" y="${priceY + 38}" text-anchor="middle" fill="#9ca3af" font-size="10" font-family="system-ui,sans-serif">/mois &#8226; ${xe(fmt(f.annualPremium))} &#8364;/an</text>`;
+
+    let nextY = priceY + 46;
+    if (f.monthlySaving !== undefined) {
+      const sc2 = f.monthlySaving >= 0 ? '#16a34a' : '#ea580c';
+      const sb2 = f.monthlySaving >= 0 ? '#f0fdf4' : '#fff7ed';
+      const sign = f.monthlySaving >= 0 ? '+' : '';
+      cards += `<rect x="${x+20}" y="${nextY}" width="${CW-40}" height="18" fill="${sb2}" rx="9" stroke="${sc2}" stroke-width="0.5"/>`;
+      cards += `<text x="${x + CW/2}" y="${nextY+12}" text-anchor="middle" fill="${sc2}" font-size="10" font-weight="600" font-family="system-ui,sans-serif">${sign}${xe(String(f.monthlySaving))} &#8364;/mois vs actuel</text>`;
+      nextY += 22;
+    }
+
+    cards += `<line x1="${x+12}" y1="${nextY + 4}" x2="${x+CW-12}" y2="${nextY + 4}" stroke="#f3f4f6" stroke-width="1"/>`;
+
+    const cov = [
+      ['&#128138;', 'Soins',    f.coverage.soins.substring(0, 26)],
+      ['&#127973;', 'Hospit.',  f.coverage.hospitalisation.substring(0, 26)],
+      ['&#128083;', 'Optique',  f.coverage.optique.substring(0, 26)],
+      ['&#129463;', 'Dentaire', f.coverage.dentaire.substring(0, 26)],
+    ];
+    let cy = nextY + 18;
+    for (const [ico, lbl, val] of cov) {
+      cards += `<text x="${x+14}" y="${cy}" fill="#6b7280" font-size="13" font-family="system-ui,sans-serif">${ico}</text>`;
+      cards += `<text x="${x+30}" y="${cy}" fill="#374151" font-size="10" font-weight="600" font-family="system-ui,sans-serif">${lbl}</text>`;
+      cards += `<text x="${x+30}" y="${cy+12}" fill="#9ca3af" font-size="9" font-family="system-ui,sans-serif">${xe(val)}</text>`;
+      cy += 30;
+    }
+
+    const btnY = y + CH - 38;
+    cards += `<rect x="${x+12}" y="${btnY}" width="${CW-24}" height="28" fill="${isRec ? col : 'white'}" stroke="${isRec ? col : '#e5e7eb'}" stroke-width="1" rx="14"/>`;
+    cards += `<text x="${x+CW/2}" y="${btnY+18}" text-anchor="middle" fill="${isRec ? 'white' : '#6b7280'}" font-size="11" font-weight="600" font-family="system-ui,sans-serif">Selectionner</text>`;
+  });
+
+  const curInfo = a.current_insurer ? ` &#8226; Actuel : ${xe(a.current_insurer)}` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <rect width="${W}" height="${H}" fill="#F5F5F5" rx="16"/>
+  <text x="14" y="26" fill="#111827" font-size="15" font-weight="700" font-family="system-ui,sans-serif">Devis Direct Assurance</text>
+  <text x="14" y="44" fill="#6b7280" font-size="11" font-family="system-ui,sans-serif">${age} ans${curInfo}</text>
+  <text x="${W-14}" y="44" text-anchor="end" fill="#E30613" font-size="11" font-weight="600" font-family="system-ui,sans-serif">quote-llm-six.vercel.app</text>
+  ${cards}
+</svg>`;
+}
+
+function generateReimbursementSVG(scenario: string, formulaFilter?: string): string {
+  const sc = SCENARIOS[scenario];
+  if (!sc) return '';
+  const fmts = formulaFilter
+    ? FORMULA_CONFIG.filter(f => f.id === formulaFilter)
+    : FORMULA_CONFIG;
+
+  const W = 620; const BAR_W = 310; const BAR_X = 164; const BAR_H = 18;
+  const ROW_H = 72; const TOP = 66;
+  const H = TOP + fmts.length * ROW_H + 46;
+
+  let rows = '';
+  fmts.forEach((f, i) => {
+    const row  = REIMB[scenario]?.[f.id];
+    if (!row) return;
+    const y    = TOP + i * ROW_H;
+    const tot  = sc.cost;
+    const sW   = Math.round((row.secu     / tot) * BAR_W);
+    const mW   = Math.round((row.mutuelle / tot) * BAR_W);
+    const rW   = Math.max(0, BAR_W - sW - mW);
+    const pct  = Math.round(((row.secu + row.mutuelle) / tot) * 100);
+    const isRec = f.id === 'equilibre';
+    const nc   = isRec ? '#E30613' : '#374151';
+
+    rows += `<text x="14" y="${y+14}" fill="${nc}" font-size="12" font-weight="${isRec ? '700' : '500'}" font-family="system-ui,sans-serif">${xe(f.name)}${isRec ? ' &#9733;' : ''}</text>`;
+    rows += `<text x="14" y="${y+28}" fill="#9ca3af" font-size="10" font-family="system-ui,sans-serif">Secu ${row.secu}&#8364;  Mutuelle ${row.mutuelle}&#8364;</text>`;
+
+    rows += `<rect x="${BAR_X}" y="${y}" width="${BAR_W}" height="${BAR_H}" fill="#f3f4f6" rx="9"/>`;
+    if (sW > 0) rows += `<rect x="${BAR_X}" y="${y}" width="${sW}" height="${BAR_H}" fill="#22c55e" rx="${mW + rW > 0 ? '9 0 0 9' : '9'}"/>`;
+    if (mW > 0) rows += `<rect x="${BAR_X+sW}" y="${y}" width="${mW}" height="${BAR_H}" fill="#3b82f6" rx="${rW > 0 ? 0 : '0 9 9 0'}"/>`;
+    if (rW > 0) rows += `<rect x="${BAR_X+sW+mW}" y="${y}" width="${rW}" height="${BAR_H}" fill="#ef4444" rx="${sW+mW > 0 ? '0 9 9 0' : '9'}"/>`;
+
+    const remC = row.remaining === 0 ? '#16a34a' : row.remaining < 100 ? '#ea580c' : '#dc2626';
+    rows += `<text x="${BAR_X+BAR_W+10}" y="${y+13}" fill="#6b7280" font-size="11" font-family="system-ui,sans-serif">${pct}% couvert</text>`;
+    rows += `<text x="${BAR_X+BAR_W+10}" y="${y+28}" fill="${remC}" font-size="11" font-weight="600" font-family="system-ui,sans-serif">Reste : ${row.remaining}&#8364;</text>`;
+
+    if (i < fmts.length - 1)
+      rows += `<line x1="14" y1="${y+ROW_H-4}" x2="${W-14}" y2="${y+ROW_H-4}" stroke="#f3f4f6" stroke-width="1"/>`;
+  });
+
+  const lY = H - 22;
+  const legend = [
+    { x: 14,  color: '#22c55e', label: 'Securite sociale' },
+    { x: 148, color: '#3b82f6', label: 'Mutuelle' },
+    { x: 230, color: '#ef4444', label: 'Reste a charge' },
+  ];
+  for (const l of legend) {
+    rows += `<rect x="${l.x}" y="${lY}" width="10" height="10" fill="${l.color}" rx="2"/>`;
+    rows += `<text x="${l.x+14}" y="${lY+9}" fill="#6b7280" font-size="10" font-family="system-ui,sans-serif">${l.label}</text>`;
+  }
+  rows += `<text x="${W-14}" y="${lY+9}" text-anchor="end" fill="#9ca3af" font-size="9" font-family="system-ui,sans-serif">Indicatif 2024</text>`;
+
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
+  <rect width="${W}" height="${H}" fill="#F5F5F5" rx="16"/>
+  <text x="14" y="26" fill="#111827" font-size="15" font-weight="700" font-family="system-ui,sans-serif">Simulation : ${xe(sc.label)}</text>
+  <text x="14" y="46" fill="#6b7280" font-size="12" font-family="system-ui,sans-serif">Cout total estime : ${sc.cost}&#8364;</text>
+  ${rows}
+</svg>`;
+}
+
+// ─── Pedagogical explanations ─────────────────────────────────────────────────
+
+const EXPLANATIONS: Record<string, Record<string, string>> = {
+  hospitalisation: {
+    minimum: "Niveau Minimum : chambre partagee, remboursement Secu uniquement. Les depassements d'honoraires restent a votre charge. Convient si vous etes rarement hospitalise(e).",
+    comfort:  "Niveau Confort : chambre individuelle (economie de 80-150 EUR/nuit), prise en charge partielle des depassements. Le bon equilibre pour la majorite des assures.",
+    premium:  "Niveau Premium : clinique privee au choix, depassements couverts jusqu'a 200%, chambre individuelle garantie. Recommande si vous avez des antecedents medicaux.",
+  },
+  optique: {
+    minimum:  "Niveau Minimum : verres simples et montures ~30 EUR, dans la limite du remboursement Secu. Adapte si vous ne portez pas de lunettes ou rarement.",
+    standard: "Niveau Standard : montures jusqu'a ~150 EUR, verres progressifs couverts, renouvellement tous les 2 ans. Ideal si vous portez des lunettes au quotidien.",
+    enhanced: "Niveau Renforce : montures haut de gamme (~300 EUR), verres premium, lentilles de contact incluses. A choisir si vous depensez plus de 300 EUR tous les 2 ans.",
+  },
+  dentaire: {
+    routine:      "Niveau Courant : caries, detartrage, obturations. Suffit si votre situation dentaire est stable.",
+    prosthetics:  "Niveau Protheses : couronnes, bridges, implants partiels rembourses. Indispensable si des soins lourds sont prevus (couts > 1 000 EUR).",
+    orthodontics: "Niveau Orthodontie : appareils adulte et enfant inclus, en plus des protheses. Necessaire si un traitement orthodontique est en cours.",
+  },
+};
 
 // ─── MCP Server ───────────────────────────────────────────────────────────────
 
 const server = new Server(
-  { name: 'direct-assurance-mcp', version: '1.0.0' },
+  { name: 'direct-assurance-mcp', version: '2.0.0' },
   { capabilities: { tools: {} } },
 );
 
@@ -228,70 +404,63 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   tools: [
     {
       name:        'calculate_da_quote',
-      description: "Calcule un devis Direct Assurance mutuelle santé et retourne les 3 formules avec leurs tarifs mensuels et la recommandation personnalisée.",
+      description: "Calcule un devis Direct Assurance mutuelle sante. Retourne les 3 formules avec tarifs, couverture, exemples concrets, et un widget visuel SVG.",
       inputSchema: {
         type: 'object',
         properties: {
-          date_of_birth:        { type: 'string',  description: 'Date de naissance au format DD/MM/YYYY (ex: 15/06/1985)' },
-          regime:               { type: 'string',  enum: ['general','independent','agriculture','student','alsace_moselle','other'], description: 'Régime de sécurité sociale' },
-          family_composition:   { type: 'string',  enum: ['single','couple','family','parent'], description: 'Situation familiale' },
-          hospitalization_need: { type: 'string',  enum: ['minimum','comfort','premium'], description: 'Niveau de couverture hospitalisation souhaité' },
-          optics_need:          { type: 'string',  enum: ['minimum','standard','enhanced'], description: 'Niveau de couverture optique souhaité' },
-          dental_need:          { type: 'string',  enum: ['routine','prosthetics','orthodontics'], description: 'Niveau de couverture dentaire souhaité' },
-          current_price:        { type: 'number',  description: 'Tarif mensuel actuel en € (optionnel, pour calculer les économies potentielles)' },
-          current_insurer:      { type: 'string',  description: 'Nom de l\'assureur actuel (optionnel)' },
+          date_of_birth:        { type: 'string',  description: 'Date de naissance DD/MM/YYYY' },
+          regime:               { type: 'string',  enum: ['general','independent','agriculture','student','alsace_moselle','other'] },
+          family_composition:   { type: 'string',  enum: ['single','couple','family','parent'] },
+          hospitalization_need: { type: 'string',  enum: ['minimum','comfort','premium'] },
+          optics_need:          { type: 'string',  enum: ['minimum','standard','enhanced'] },
+          dental_need:          { type: 'string',  enum: ['routine','prosthetics','orthodontics'] },
+          current_price:        { type: 'number',  description: 'Tarif mensuel actuel en EUR (optionnel)' },
+          current_insurer:      { type: 'string',  description: 'Assureur actuel (optionnel)' },
         },
         required: ['date_of_birth','regime','family_composition','hospitalization_need','optics_need','dental_need'],
       },
     },
     {
-      name:        'explain_da_coverage',
-      description: "Retourne une explication pédagogique détaillée d'un niveau de couverture (hospitalisation, optique ou dentaire). Utile quand l'utilisateur hésite sur son choix.",
-      inputSchema: {
-        type: 'object',
-        properties: {
-          category: { type: 'string', enum: ['hospitalisation','optique','dentaire'], description: 'La catégorie de couverture' },
-          level:    { type: 'string', description: 'Le niveau : minimum/comfort/premium pour hospit ; minimum/standard/enhanced pour optique ; routine/prosthetics/orthodontics pour dentaire' },
-        },
-        required: ['category','level'],
-      },
-    },
-    {
       name:        'simulate_reimbursement',
-      description: "Simule le remboursement d'un soin courant par chaque formule Direct Assurance (Sécu + mutuelle + reste à charge). Idéal pour montrer concrètement la différence entre les formules sur un cas réel.",
+      description: "Simule le remboursement d'un soin par chaque formule DA (Secu + mutuelle + reste a charge). Retourne un tableau et un widget visuel SVG avec barres colorees.",
       inputSchema: {
         type: 'object',
         properties: {
           scenario: {
             type: 'string',
             enum: ['dental_crown','optician_prog','specialist','gp_visit','hospital_3d','dental_implant'],
-            description: "Type de soin : dental_crown (couronne ~900€), optician_prog (lunettes prog. ~400€), specialist (spécialiste sect.2 ~50€), gp_visit (généraliste ~25€), hospital_3d (hospit. 3 nuits ~1200€), dental_implant (implant ~1500€)",
+            description: "dental_crown (couronne ~900EUR), optician_prog (lunettes ~400EUR), specialist (sect.2 ~50EUR), gp_visit (generaliste ~25EUR), hospital_3d (hospit. ~1200EUR), dental_implant (implant ~1500EUR)",
           },
           formula: {
             type: 'string',
             enum: ['essentielle','essentielle_plus','equilibre'],
-            description: "Formule spécifique (optionnel — si absent, compare les 3 formules)",
+            description: "Formule specifique (optionnel — si absent, compare les 3)",
           },
         },
         required: ['scenario'],
       },
     },
     {
-      name:        'chat_da_advisor',
-      description: "Envoie un message au conseiller IA Direct Assurance (GPT-5.5). Retourne la réponse de l'assistant et les données de profil extraites. Utilise cet outil pour les questions ouvertes, les doutes, ou pour collecter les infos manquantes de façon conversationnelle.",
+      name:        'explain_da_coverage',
+      description: "Retourne une explication pedagogique detaillee d'un niveau de couverture.",
       inputSchema: {
         type: 'object',
         properties: {
-          message:  { type: 'string', description: 'Message de l\'utilisateur' },
-          history:  {
-            type:  'array',
-            items: { type: 'object', properties: { role: { type: 'string' }, content: { type: 'string' } }, required: ['role','content'] },
-            description: 'Historique de la conversation (optionnel)',
-          },
-          slots: {
-            type: 'object',
-            description: 'Profil déjà connu (optionnel) : date_of_birth, regime, family_composition, etc.',
-          },
+          category: { type: 'string', enum: ['hospitalisation','optique','dentaire'] },
+          level:    { type: 'string', description: 'minimum|comfort|premium / minimum|standard|enhanced / routine|prosthetics|orthodontics' },
+        },
+        required: ['category','level'],
+      },
+    },
+    {
+      name:        'chat_da_advisor',
+      description: "Envoie un message au conseiller IA Direct Assurance (GPT). Pour les questions ouvertes ou la collecte d'infos manquantes.",
+      inputSchema: {
+        type: 'object',
+        properties: {
+          message:  { type: 'string' },
+          history:  { type: 'array', items: { type: 'object', properties: { role: { type: 'string' }, content: { type: 'string' } }, required: ['role','content'] } },
+          slots:    { type: 'object' },
         },
         required: ['message'],
       },
@@ -302,70 +471,37 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   const { name, arguments: args = {} } = request.params;
 
-  // ── simulate_reimbursement ──────────────────────────────────────────────────
+  if (name === 'calculate_da_quote') {
+    const text = renderQuoteMd(args as Record<string, any>);
+    const svg  = generateQuoteSVG(args as Record<string, any>);
+    const content: any[] = [{ type: 'text', text }];
+    if (svg) content.push({ type: 'image', data: svgToBase64(svg), mimeType: 'image/svg+xml' });
+    return { content };
+  }
+
   if (name === 'simulate_reimbursement') {
     const { scenario, formula } = args as { scenario: string; formula?: string };
-    return { content: [{ type: 'text', text: simulateReimbursement(scenario, formula) }] };
+    const text = renderSimulateMd(scenario, formula);
+    const svg  = generateReimbursementSVG(scenario, formula);
+    const content: any[] = [{ type: 'text', text }];
+    if (svg) content.push({ type: 'image', data: svgToBase64(svg), mimeType: 'image/svg+xml' });
+    return { content };
   }
 
-  // ── calculate_da_quote ──────────────────────────────────────────────────────
-  if (name === 'calculate_da_quote') {
-    const result = calculateQuote(args as any);
-    const lines: string[] = [
-      `## Devis Direct Assurance — ${args.date_of_birth} · ${args.regime} · ${args.family_composition}`,
-      '',
-    ];
-    for (const f of result.formulas) {
-      const tag = f.recommended ? ' ⭐ RECOMMANDÉE' : '';
-      lines.push(`### ${f.name}${tag}`);
-      lines.push(`**${f.monthlyPremium} €/mois** (${f.annualPremium} €/an)`);
-      if (f.monthlySaving !== undefined) {
-        const sign = f.monthlySaving >= 0 ? '+' : '';
-        lines.push(`Économie vs assureur actuel : ${sign}${f.monthlySaving} €/mois`);
-      }
-      lines.push(`_${f.tagline}_`);
-      lines.push(`- Soins : ${f.coverage.soins}`);
-      lines.push(`- Hospitalisation : ${f.coverage.hospitalisation}`);
-      lines.push(`- Optique : ${f.coverage.optique}`);
-      lines.push(`- Dentaire : ${f.coverage.dentaire}`);
-      const examples = FORMULA_EXAMPLES[f.id];
-      if (examples) {
-        lines.push('');
-        lines.push('**Exemples concrets du quotidien :**');
-        examples.forEach(ex => lines.push(`- ${ex}`));
-      }
-      lines.push('');
-    }
-    lines.push(`**Âge calculé :** ${result.age} ans`);
-    if (result.current_insurer) lines.push(`**Assureur actuel :** ${result.current_insurer}`);
-    return { content: [{ type: 'text', text: lines.join('\n') }] };
-  }
-
-  // ── explain_da_coverage ─────────────────────────────────────────────────────
   if (name === 'explain_da_coverage') {
     const { category, level } = args as { category: string; level: string };
-    const explanation = EXPLANATIONS[category]?.[level];
-    if (!explanation) {
-      return { content: [{ type: 'text', text: `Niveau inconnu : ${category} / ${level}` }], isError: true };
-    }
-    const label: Record<string, Record<string, string>> = {
-      hospitalisation: { minimum: 'Minimum', comfort: 'Confort', premium: 'Premium' },
-      optique:         { minimum: 'Minimum', standard: 'Standard', enhanced: 'Renforcé' },
-      dentaire:        { routine: 'Routine', prosthetics: 'Prothèses', orthodontics: 'Orthodontie' },
-    };
-    const text = `## ${category.charAt(0).toUpperCase() + category.slice(1)} — niveau ${label[category]?.[level] ?? level}\n\n${explanation}`;
-    return { content: [{ type: 'text', text }] };
+    const text = EXPLANATIONS[category]?.[level];
+    if (!text) return { content: [{ type: 'text', text: `Inconnu : ${category}/${level}` }], isError: true };
+    return { content: [{ type: 'text', text: `## ${category} — ${level}\n\n${text}` }] };
   }
 
-  // ── chat_da_advisor ─────────────────────────────────────────────────────────
   if (name === 'chat_da_advisor') {
     const { message, history = [], slots = {} } = args as {
       message: string;
       history?: { role: string; content: string }[];
       slots?: Record<string, unknown>;
     };
-
-    const apiUrl = process.env.DA_API_URL ?? 'https://quote-llm.vercel.app';
+    const apiUrl   = process.env.DA_API_URL ?? 'https://quote-llm-six.vercel.app';
     const messages = [...history, { role: 'user', content: message }];
 
     const res = await fetch(`${apiUrl}/api/chat`, {
@@ -374,19 +510,13 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       body:    JSON.stringify({ messages, slots }),
     });
 
-    if (!res.ok) {
-      return { content: [{ type: 'text', text: `Erreur API : ${res.status}` }], isError: true };
-    }
+    if (!res.ok) return { content: [{ type: 'text', text: `Erreur API : ${res.status}` }], isError: true };
 
     const data = await res.json() as { reply: string; slots: Record<string, unknown>; action: string | null };
-    const lines = [`**Réponse :** ${data.reply}`];
+    const lines = [`**Reponse :** ${data.reply}`];
     const newSlots = Object.entries(data.slots ?? {}).filter(([, v]) => v != null);
-    if (newSlots.length) {
-      lines.push('', '**Infos extraites :**');
-      for (const [k, v] of newSlots) lines.push(`- ${k}: ${JSON.stringify(v)}`);
-    }
-    if (data.action) lines.push('', `**Action déclenchée :** ${data.action}`);
-
+    if (newSlots.length) { lines.push('', '**Infos extraites :**'); for (const [k, v] of newSlots) lines.push(`- ${k}: ${JSON.stringify(v)}`); }
+    if (data.action) lines.push('', `**Action :** ${data.action}`);
     return { content: [{ type: 'text', text: lines.join('\n') }] };
   }
 
