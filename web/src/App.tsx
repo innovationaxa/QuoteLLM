@@ -95,6 +95,8 @@ export default function App() {
                 onProfileRecap={() => {}}
                 onContinueToBuy={continueToBuy}
                 onRequestCallback={requestCallback}
+                onCardUpload={() => {}}
+                onCardUploadSkip={() => {}}
               />
             ))}
             {isTyping && <TypingIndicator />}

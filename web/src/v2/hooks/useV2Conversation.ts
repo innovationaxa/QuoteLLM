@@ -50,9 +50,10 @@ export function useV2Conversation() {
   const slotsRef      = useRef<Slots>(EMPTY_SLOTS);
 
   // UX redesign refs
-  const needsMatrixShownRef = useRef(false);
-  const regimeChipsShownRef = useRef(false);
-  const familyChipsShownRef = useRef(false);
+  const needsMatrixShownRef  = useRef(false);
+  const regimeChipsShownRef  = useRef(false);
+  const familyChipsShownRef  = useRef(false);
+  const cardUploadShownRef   = useRef(false);
 
   const mergeSlots = useCallback((incoming: Partial<Slots>) => {
     const next = { ...slotsRef.current, ...incoming };
@@ -155,6 +156,8 @@ export function useV2Conversation() {
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || inputDisabled) return;
 
+    const isFirstMessage = apiHistoryRef.current.length === 0;
+
     const uMsg = userMsg(text.trim());
     addMessages(uMsg);
     apiHistoryRef.current = [...apiHistoryRef.current, { role: 'user', content: text.trim() }];
@@ -204,6 +207,18 @@ export function useV2Conversation() {
       // Show reply message
       if (data.reply?.trim()) {
         addMessages(botMsg(data.reply));
+      }
+
+      // Inject card-upload widget on first exchange (after bot's greeting)
+      if (isFirstMessage && !cardUploadShownRef.current) {
+        cardUploadShownRef.current = true;
+        setTimeout(() => {
+          addMessages(botMsg('Pour aller plus vite, vous pouvez scanner votre carte mutuelle actuelle :', {
+            widget: 'card-upload',
+            widgetData: {},
+            consumed: false,
+          }));
+        }, 600);
       }
 
       // Handle action — show-pricing only when all 6 required slots are present
@@ -281,8 +296,8 @@ export function useV2Conversation() {
   // Pre-fill slots from OCR and start conversation
   const startFromOcr = useCallback((ocr: OcrResult) => {
     const partial: Partial<Slots> = {};
-    if (ocr.date_of_birth)   partial.date_of_birth  = ocr.date_of_birth;
-    if (ocr.current_insurer) partial.current_insurer = ocr.current_insurer;
+    if (ocr.date_of_birth)   partial.date_of_birth   = ocr.date_of_birth;
+    if (ocr.current_insurer) partial.current_insurer  = ocr.current_insurer;
     if (ocr.current_insurer) partial.currently_insured = true;
     mergeSlots(partial);
 
@@ -295,6 +310,15 @@ export function useV2Conversation() {
     sendMessage(greeting);
   }, [mergeSlots, sendMessage]);
 
+  const handleCardUpload = useCallback((msgId: string, ocr: OcrResult) => {
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, consumed: true } : m));
+    startFromOcr(ocr);
+  }, [startFromOcr]);
+
+  const handleCardUploadSkip = useCallback((msgId: string) => {
+    setMessages(prev => prev.map(m => m.id === msgId ? { ...m, consumed: true } : m));
+  }, []);
+
   return {
     messages,
     slots,
@@ -303,6 +327,8 @@ export function useV2Conversation() {
     inputDisabled,
     sendMessage,
     startFromOcr,
+    handleCardUpload,
+    handleCardUploadSkip,
     handleNeedsTuner,
     handleNeedsMatrix,
     handleProfileRecap,

@@ -12,7 +12,8 @@ export type WidgetType =
   | 'cta-card'
   | 'needs-matrix'
   | 'profile-recap'
-  | 'reimbursement-simulator';
+  | 'reimbursement-simulator'
+  | 'card-upload';
 
 export interface OcrResult {
   current_insurer: string | null;

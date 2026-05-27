@@ -1,8 +1,8 @@
 import daLogoSrc from '../assets/da-logo.png';
 
-interface Props { onStart: () => void; onUploadCard: () => void; }
+interface Props { onStart: () => void; }
 
-export function WelcomeCard({ onStart, onUploadCard }: Props) {
+export function WelcomeCard({ onStart }: Props) {
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh] animate-fade-up text-center px-4">
       <div className="max-w-sm w-full">
@@ -34,33 +34,13 @@ export function WelcomeCard({ onStart, onUploadCard }: Props) {
             </div>
           ))}
         </div>
-        {/* Primary CTA: scan card */}
-        <button
-          onClick={onUploadCard}
-          className="w-full py-4 rounded-full bg-da-blue hover:bg-da-blue-hover text-white text-base font-semibold transition-colors shadow-sm mb-3"
-        >
-          📷 Scanner ma carte mutuelle
-        </button>
-
-        {/* Speed badge */}
-        <p className="text-xs text-green-700 font-medium text-center mb-5">
-          ⚡ Pré-remplissage automatique · Plus rapide
-        </p>
-
-        <div className="flex items-center gap-3 mb-5">
-          <div className="flex-1 h-px bg-border" />
-          <span className="text-xs text-muted">ou</span>
-          <div className="flex-1 h-px bg-border" />
-        </div>
-
-        {/* Secondary CTA: manual */}
+        {/* Primary CTA */}
         <button
           onClick={onStart}
-          className="w-full py-3 rounded-full border border-border text-sm text-muted hover:text-gray-900 hover:border-muted transition-colors"
+          className="w-full py-4 rounded-full bg-da-blue hover:bg-da-blue-hover text-white text-base font-semibold transition-colors shadow-sm"
         >
-          Saisir manuellement
+          Commencer mon devis →
         </button>
-
         <p className="text-xs text-muted mt-4">
           🔒 Données confidentielles · Conformité RGPD · Groupe AXA
         </p>

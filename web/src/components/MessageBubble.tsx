@@ -1,6 +1,8 @@
 import { ChatMessage, QuickReplyOption, QuoteResult, QuickEstimateData, NeedsTunerData } from '../types';
 import type { NeedsMatrixData, ProfileRecapData } from '../types';
 import { ReimbursementSimulator, ReimbursementSimulatorData } from './ReimbursementSimulator';
+import { CardUpload } from './CardUpload';
+import type { OcrResult } from '../types';
 import { ConsentCard }          from './ConsentCard';
 import { QuickReply }           from './QuickReply';
 import { CalculatingCard }      from './CalculatingCard';
@@ -37,6 +39,8 @@ interface Props {
   onProfileRecap:        (msgId: string) => void;
   onContinueToBuy:       (id: string) => void;
   onRequestCallback:     (id: string) => void;
+  onCardUpload:          (msgId: string, ocr: OcrResult) => void;
+  onCardUploadSkip:      (msgId: string) => void;
 }
 
 export function MessageBubble({
@@ -45,6 +49,7 @@ export function MessageBubble({
   onDocUpload, onDocEnterManually, onDocSkip,
   onNeedsTuner, onNeedsMatrix, onProfileRecap,
   onContinueToBuy, onRequestCallback,
+  onCardUpload, onCardUploadSkip,
 }: Props) {
   if (message.role === 'user') {
     return (
@@ -143,6 +148,13 @@ export function MessageBubble({
 
         {message.widget === 'reimbursement-simulator' && (
           <ReimbursementSimulator {...(message.widgetData as ReimbursementSimulatorData)} />
+        )}
+
+        {!message.consumed && message.widget === 'card-upload' && (
+          <CardUpload
+            onConfirm={ocr  => onCardUpload(message.id, ocr)}
+            onSkip={() => onCardUploadSkip(message.id)}
+          />
         )}
       </div>
     </div>

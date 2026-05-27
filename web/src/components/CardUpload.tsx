@@ -1,36 +1,30 @@
 import { useState, useRef } from 'react';
 import { OcrResult } from '../types';
 
-// ─── helpers ─────────────────────────────────────────────────────────────────
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-}
-
-// ─── extracted field display ─────────────────────────────────────────────────
-
-function ExtractedField({ label, value }: { label: string; value: string | null }) {
-  if (!value) return null;
-  return (
-    <div className="flex items-center justify-between py-1.5 text-sm border-b border-border/50 last:border-0">
-      <span className="text-muted text-xs">{label}</span>
-      <span className="text-gray-900 font-medium text-xs">{value}</span>
-    </div>
-  );
-}
-
-// ─── component ────────────────────────────────────────────────────────────────
-
 type Step = 'idle' | 'preview' | 'processing' | 'done' | 'error';
 
 interface Props {
   onConfirm: (data: OcrResult) => void;
   onSkip:    () => void;
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload  = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function Field({ label, value }: { label: string; value: string | null }) {
+  if (!value) return null;
+  return (
+    <div className="flex justify-between text-xs py-1 border-b border-border/50 last:border-0">
+      <span className="text-muted">{label}</span>
+      <span className="font-medium text-gray-900">{value}</span>
+    </div>
+  );
 }
 
 export function CardUpload({ onConfirm, onSkip }: Props) {
@@ -41,9 +35,8 @@ export function CardUpload({ onConfirm, onSkip }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(f: File) {
-    const url = await fileToDataUrl(f);
     setFile(f);
-    setPreview(url);
+    setPreview(await fileToDataUrl(f));
     setStep('preview');
   }
 
@@ -53,9 +46,9 @@ export function CardUpload({ onConfirm, onSkip }: Props) {
     try {
       const dataUrl = await fileToDataUrl(file);
       const res = await fetch('/api/ocr', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: dataUrl }),
+        body:    JSON.stringify({ imageBase64: dataUrl }),
       });
       if (!res.ok) throw new Error('OCR failed');
       const { extracted: raw } = await res.json();
@@ -66,8 +59,7 @@ export function CardUpload({ onConfirm, onSkip }: Props) {
         last_name:       raw.last_name        ?? null,
         contract_number: raw.contract_number  ?? null,
       };
-      const hasData = Object.values(result).some(v => v !== null);
-      if (!hasData) throw new Error('Nothing extracted');
+      if (!Object.values(result).some(v => v !== null)) throw new Error('Nothing extracted');
       setExtracted(result);
       setStep('done');
     } catch {
@@ -75,38 +67,38 @@ export function CardUpload({ onConfirm, onSkip }: Props) {
     }
   }
 
+  function reset() {
+    setStep('idle');
+    setPreview(null);
+    setFile(null);
+    if (inputRef.current) inputRef.current.value = '';
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh] animate-fade-up px-4">
-      <div className="max-w-sm w-full">
+    <div className="mt-3 rounded-[20px] border border-border overflow-hidden max-w-md animate-fade-up">
 
-        {/* ── idle ── */}
-        {step === 'idle' && (
-          <>
-            <div className="text-center mb-6">
-              <div className="w-16 h-16 rounded-2xl bg-da-blue/10 flex items-center justify-center mx-auto mb-4">
-                <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#E30613" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-1">Scannez votre carte mutuelle</h2>
-              <p className="text-sm text-muted leading-relaxed">
-                On pré-remplit votre profil automatiquement pour gagner du temps
-              </p>
+      {/* ── idle ── */}
+      {step === 'idle' && (
+        <>
+          <div className="bg-elevated px-4 py-3 border-b border-border flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-gray-900">Scanner ma carte mutuelle</p>
+              <p className="text-xs text-muted mt-0.5">Pré-remplissage automatique · Plus rapide</p>
             </div>
-
-            {/* Upload zone */}
+            <span className="text-[10px] font-medium text-muted bg-white border border-border rounded-full px-2 py-0.5">
+              Optionnel
+            </span>
+          </div>
+          <div className="bg-white px-4 py-4 flex flex-col gap-3">
             <button
               onClick={() => inputRef.current?.click()}
-              className="w-full border-2 border-dashed border-gray-300 rounded-[20px] p-8 flex flex-col items-center gap-3 hover:border-da-blue/50 hover:bg-red-50/30 transition-all cursor-pointer mb-3"
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-full border-2 border-dashed border-gray-300 text-sm text-gray-600 hover:border-da-blue/50 hover:text-da-blue hover:bg-red-50/20 transition-all"
             >
-              <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.3} className="text-gray-400">
+              <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
               </svg>
-              <span className="text-sm font-medium text-gray-700">Cliquez ou déposez une photo</span>
-              <span className="text-xs text-muted">JPG · PNG · HEIC · PDF</span>
+              Importer une photo de ma carte
             </button>
-
             <input
               ref={inputRef}
               type="file"
@@ -115,121 +107,94 @@ export function CardUpload({ onConfirm, onSkip }: Props) {
               className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }}
             />
-
-            <div className="flex items-center gap-3 my-3">
-              <div className="flex-1 h-px bg-border" />
-              <span className="text-xs text-muted">ou</span>
-              <div className="flex-1 h-px bg-border" />
-            </div>
-
-            <button
-              onClick={onSkip}
-              className="w-full py-3 rounded-full border border-border text-sm text-muted hover:text-gray-900 hover:border-muted transition-colors"
-            >
-              Saisir manuellement
+            <button onClick={onSkip} className="text-xs text-muted hover:text-gray-700 text-center transition-colors">
+              Passer cette étape →
             </button>
-
-            <p className="text-xs text-muted text-center mt-4">
-              🔒 Image analysée localement · Non stockée · RGPD
-            </p>
-          </>
-        )}
-
-        {/* ── preview ── */}
-        {step === 'preview' && preview && (
-          <>
-            <h2 className="text-lg font-bold text-gray-900 mb-4 text-center">Votre carte</h2>
-            <div className="rounded-2xl overflow-hidden border border-border mb-4 shadow-sm">
-              <img src={preview} alt="Carte mutuelle" className="w-full object-contain max-h-52" />
-            </div>
-            <button
-              onClick={analyse}
-              className="w-full py-3.5 rounded-full bg-da-blue hover:bg-da-blue-hover text-white text-sm font-semibold transition-colors mb-2"
-            >
-              Analyser la carte →
-            </button>
-            <button
-              onClick={() => { setStep('idle'); setPreview(null); setFile(null); inputRef.current && (inputRef.current.value = ''); }}
-              className="w-full py-2.5 rounded-full border border-border text-sm text-muted hover:border-muted transition-colors"
-            >
-              Changer l'image
-            </button>
-          </>
-        )}
-
-        {/* ── processing ── */}
-        {step === 'processing' && (
-          <div className="flex flex-col items-center gap-4 py-12 text-center">
-            <div className="w-14 h-14 rounded-full border-4 border-da-blue/20 border-t-da-blue animate-spin" />
-            <p className="text-sm font-medium text-gray-800">Lecture en cours…</p>
-            <p className="text-xs text-muted">Extraction des informations de votre carte</p>
           </div>
-        )}
+        </>
+      )}
 
-        {/* ── done ── */}
-        {step === 'done' && extracted && (
-          <>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-                <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#16a34a" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-gray-900">Voici ce qu'on a reconnu</p>
-            </div>
-
-            <div className="rounded-2xl border border-border bg-white px-4 py-1 mb-4">
-              <ExtractedField label="Mutuelle"          value={extracted.current_insurer} />
-              <ExtractedField label="Date de naissance" value={extracted.date_of_birth}   />
-              <ExtractedField label="Prénom"            value={extracted.first_name}       />
-              <ExtractedField label="Nom"               value={extracted.last_name}        />
-            </div>
-
-            <button
-              onClick={() => onConfirm(extracted)}
-              className="w-full py-3.5 rounded-full bg-da-blue hover:bg-da-blue-hover text-white text-sm font-semibold transition-colors mb-2"
-            >
-              Confirmer et continuer →
+      {/* ── preview ── */}
+      {step === 'preview' && preview && (
+        <div className="bg-white px-4 py-4 flex items-center gap-3">
+          <img src={preview} alt="carte" className="w-16 h-10 object-cover rounded-lg border border-border shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs text-gray-700 truncate">{file?.name}</p>
+            <p className="text-[10px] text-muted mt-0.5">Prête à analyser</p>
+          </div>
+          <div className="flex flex-col gap-1.5 shrink-0">
+            <button onClick={analyse} className="px-3 py-1.5 rounded-full bg-da-blue text-white text-xs font-semibold hover:bg-da-blue-hover transition-colors">
+              Analyser →
             </button>
-            <button
-              onClick={onSkip}
-              className="w-full py-2.5 rounded-full border border-border text-sm text-muted hover:border-muted transition-colors"
-            >
-              Corriger manuellement
+            <button onClick={reset} className="px-3 py-1.5 rounded-full border border-border text-xs text-muted hover:border-muted transition-colors">
+              Changer
             </button>
-          </>
-        )}
+          </div>
+        </div>
+      )}
 
-        {/* ── error ── */}
-        {step === 'error' && (
-          <>
-            <div className="flex flex-col items-center gap-3 py-8 text-center mb-4">
-              <div className="w-14 h-14 rounded-full bg-orange-50 flex items-center justify-center">
-                <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="#ea580c" strokeWidth={1.8}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-                </svg>
-              </div>
-              <p className="text-sm font-semibold text-gray-900">Lecture impossible</p>
-              <p className="text-xs text-muted leading-relaxed">
-                La carte n'est pas lisible ou le format n'est pas reconnu.
-              </p>
+      {/* ── processing ── */}
+      {step === 'processing' && (
+        <div className="bg-white px-4 py-5 flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full border-3 border-da-blue/20 border-t-da-blue animate-spin shrink-0" style={{ borderWidth: 3 }} />
+          <div>
+            <p className="text-sm font-medium text-gray-800">Lecture en cours…</p>
+            <p className="text-xs text-muted mt-0.5">Extraction des informations</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── done ── */}
+      {step === 'done' && extracted && (
+        <>
+          <div className="bg-elevated px-4 py-3 border-b border-border flex items-center gap-2">
+            <div className="w-5 h-5 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+              <svg width="10" height="8" fill="none" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#16a34a" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"/></svg>
             </div>
-            <button
-              onClick={() => setStep('idle')}
-              className="w-full py-3 rounded-full bg-da-blue hover:bg-da-blue-hover text-white text-sm font-semibold transition-colors mb-2"
-            >
+            <p className="text-sm font-semibold text-gray-900">Informations reconnues</p>
+          </div>
+          <div className="bg-white px-4 py-3">
+            <Field label="Mutuelle"          value={extracted.current_insurer} />
+            <Field label="Date de naissance" value={extracted.date_of_birth}   />
+            <Field label="Prénom"            value={extracted.first_name}       />
+            <Field label="Nom"               value={extracted.last_name}        />
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={() => onConfirm(extracted)}
+                className="flex-1 py-2.5 rounded-full bg-da-blue hover:bg-da-blue-hover text-white text-xs font-semibold transition-colors"
+              >
+                Confirmer →
+              </button>
+              <button
+                onClick={onSkip}
+                className="px-4 py-2.5 rounded-full border border-border text-xs text-muted hover:border-muted transition-colors"
+              >
+                Corriger
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── error ── */}
+      {step === 'error' && (
+        <div className="bg-white px-4 py-4 flex items-center gap-3">
+          <span className="text-lg shrink-0">⚠️</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-800">Carte non reconnue</p>
+            <p className="text-xs text-muted mt-0.5">Image illisible ou format non supporté</p>
+          </div>
+          <div className="flex flex-col gap-1.5 shrink-0">
+            <button onClick={reset} className="px-3 py-1.5 rounded-full bg-da-blue text-white text-xs font-semibold transition-colors">
               Réessayer
             </button>
-            <button
-              onClick={onSkip}
-              className="w-full py-2.5 rounded-full border border-border text-sm text-muted hover:border-muted transition-colors"
-            >
-              Saisir manuellement
+            <button onClick={onSkip} className="px-3 py-1.5 rounded-full border border-border text-xs text-muted transition-colors">
+              Passer
             </button>
-          </>
-        )}
+          </div>
+        </div>
+      )}
 
-      </div>
     </div>
   );
 }
