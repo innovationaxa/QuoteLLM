@@ -44,7 +44,7 @@ export function ProfileRecap({ data, onConfirm }: Props) {
       <div className="px-4 py-3 bg-elevated border-t border-border">
         <button
           onClick={onConfirm}
-          className="w-full py-3 rounded-xl bg-da-blue hover:bg-da-blue-hover text-white text-sm font-semibold transition-colors"
+          className="w-full py-3 rounded-full bg-da-blue hover:bg-da-blue-hover text-white text-sm font-semibold transition-colors"
         >
           Oui, calculer mon devis →
         </button>

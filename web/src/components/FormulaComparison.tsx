@@ -1,92 +1,46 @@
-import { useState } from 'react';
 import { FormulaResult, QuoteResult } from '../types';
 
 const COLOR_HEADER: Record<string, string> = {
-  blue:   'bg-blue-600',
-  yellow: 'bg-yellow-500',
-  purple: 'bg-purple-600',
+  blue:   'bg-slate-500',
+  yellow: 'bg-slate-700',
+  purple: 'bg-da-blue',
 };
 const COLOR_PRICE: Record<string, string> = {
-  blue:   'text-blue-700',
-  yellow: 'text-yellow-600',
-  purple: 'text-purple-700',
-};
-const COLOR_EXAMPLES_BTN: Record<string, string> = {
-  blue:   'text-blue-600 border-blue-200 hover:bg-blue-50',
-  yellow: 'text-yellow-600 border-yellow-200 hover:bg-yellow-50',
-  purple: 'text-purple-600 border-purple-200 hover:bg-purple-50',
+  blue:   'text-slate-600',
+  yellow: 'text-slate-700',
+  purple: 'text-da-blue',
 };
 
-interface Example { icon: string; label: string; detail: string }
+interface Example { icon: string; summary: string }
 
 const FORMULA_EXAMPLES: Record<string, Example[]> = {
   essentielle: [
-    {
-      icon: '🩺',
-      label: 'Consultation généraliste (25 €)',
-      detail: 'Sécu + mutuelle couvrent 100% du tarif de base. Tu paies uniquement 1 € de ticket modérateur non remboursable.',
-    },
-    {
-      icon: '🏥',
-      label: 'Appendicite — 3 jours à l\'hôpital',
-      detail: 'Chambre partagée, forfait journalier (20 €/j) pris en charge. Si le chirurgien pratique des dépassements, ils restent à ta charge : 0 à 300 €.',
-    },
-    {
-      icon: '👓',
-      label: 'Lunettes progressives (~400 €)',
-      detail: 'Remboursement limité au plafond Sécu (~20 €). Reste à charge : environ 380 €. Adapté si tu n\'as pas besoin de lunettes régulièrement.',
-    },
-    {
-      icon: '🦷',
-      label: 'Couronne dentaire (~900 €)',
-      detail: 'Remboursement 100% BR ≈ 120 €. Reste à charge : ~780 €. Suffisant pour les soins courants, pas pour les travaux importants.',
-    },
+    { icon: '🩺', summary: 'Généraliste → **1 €** seulement' },
+    { icon: '🏥', summary: 'Hospit 3j → chambre partagée' },
+    { icon: '👓', summary: 'Lunettes prog. → **~380 €** RC' },
+    { icon: '🦷', summary: 'Couronne → **~780 €** RC' },
   ],
   essentielle_plus: [
-    {
-      icon: '🩺',
-      label: 'Consultation généraliste (25 €)',
-      detail: 'Même couverture qu\'Essentielle. Tu paies 1 € de ticket modérateur.',
-    },
-    {
-      icon: '🏥',
-      label: 'Appendicite — 3 jours à l\'hôpital',
-      detail: 'Chambre individuelle incluse : tu économises ~100 €/nuit, soit ~300 € sur 3 jours. Dépassements d\'honoraires partiellement couverts.',
-    },
-    {
-      icon: '👓',
-      label: 'Lunettes progressives (~400 €)',
-      detail: 'Jusqu\'à 200 € remboursés (montures + verres). Reste à charge : ~200 €. Idéal pour un renouvellement tous les 2 ans.',
-    },
-    {
-      icon: '🦷',
-      label: 'Couronne dentaire (~900 €)',
-      detail: 'Remboursement 125% BR ≈ 150 €. Reste à charge : ~750 €. Un bon point de départ si tes besoins dentaires sont limités.',
-    },
+    { icon: '🩺', summary: 'Généraliste → **1 €** seulement' },
+    { icon: '🏥', summary: 'Hospit → chambre indiv. **(-300 €)**' },
+    { icon: '👓', summary: 'Lunettes → **~200 €** RC' },
+    { icon: '🦷', summary: 'Couronne → **~750 €** RC' },
   ],
   equilibre: [
-    {
-      icon: '🩺',
-      label: 'Spécialiste secteur 2 (50 €)',
-      detail: 'Soins courants 120% BR : la quasi-totalité des dépassements est couverte. Tu paies ~5 € au lieu de 27 €.',
-    },
-    {
-      icon: '🏥',
-      label: 'Opération en clinique privée',
-      detail: 'Clinique privée de ton choix, chambre individuelle garantie, dépassements d\'honoraires couverts jusqu\'à 120%. Reste à charge : très faible, parfois nul.',
-    },
-    {
-      icon: '👓',
-      label: 'Lunettes premium + lentilles (~500 €)',
-      detail: 'Jusqu\'à 300 € remboursés. Reste à charge : ~200 €. Lentilles de contact également prises en charge chaque année.',
-    },
-    {
-      icon: '🦷',
-      label: 'Couronne + implant dentaire (~900 €)',
-      detail: 'Remboursement 150% BR ≈ 180 € sur la couronne. Implants partiellement couverts. Le meilleur rapport couverture/prix pour les soins lourds.',
-    },
+    { icon: '🩺', summary: 'Spécialiste → **~5 €** seulement' },
+    { icon: '🏥', summary: 'Clinique privée → **quasi nul**' },
+    { icon: '👓', summary: 'Lunettes+lentilles → **~200 €** RC' },
+    { icon: '🦷', summary: 'Couronne+implants → partiels' },
   ],
 };
+
+function renderSummary(text: string) {
+  return text.split('**').map((part, i) =>
+    i % 2 === 1
+      ? <strong key={i} className="text-gray-900">{part}</strong>
+      : part
+  );
+}
 
 function SavingBadge({ saving }: { saving: number }) {
   if (saving > 5) return (
@@ -107,12 +61,11 @@ function SavingBadge({ saving }: { saving: number }) {
 }
 
 function FormulaCard({ f }: { f: FormulaResult }) {
-  const [showExamples, setShowExamples] = useState(false);
   const examples = FORMULA_EXAMPLES[f.id] ?? [];
 
   return (
     <div className={`
-      flex flex-col rounded-2xl border overflow-hidden transition-all
+      flex flex-col rounded-[20px] border overflow-hidden transition-all
       ${f.recommended
         ? 'border-da-blue/40 shadow-lg shadow-da-blue/15 scale-[1.02]'
         : 'border-border'}
@@ -148,34 +101,22 @@ function FormulaCard({ f }: { f: FormulaResult }) {
         ))}
       </div>
 
-      {/* Examples section */}
-      <div className="bg-elevated px-4 pb-1">
-        <button
-          onClick={() => setShowExamples(v => !v)}
-          className={`w-full flex items-center justify-between py-2 text-xs font-medium border rounded-lg px-3 transition-colors ${COLOR_EXAMPLES_BTN[f.color]}`}
-        >
-          <span>💡 Exemples concrets du quotidien</span>
-          <span className="text-base leading-none">{showExamples ? '−' : '+'}</span>
-        </button>
-      </div>
-
-      {showExamples && (
-        <div className="bg-gray-50 px-4 py-3 border-t border-border flex flex-col gap-3">
+      {/* Always-visible examples */}
+      <div className="bg-white px-4 py-3 border-t border-border">
+        <p className="text-[11px] font-semibold text-muted uppercase tracking-wide mb-2">💡 Exemples du quotidien</p>
+        <div className="flex flex-col gap-1.5">
           {examples.map(ex => (
-            <div key={ex.label} className="flex gap-2">
-              <span className="text-base shrink-0 mt-0.5">{ex.icon}</span>
-              <div>
-                <p className="text-xs font-semibold text-gray-800">{ex.label}</p>
-                <p className="text-xs text-muted mt-0.5 leading-relaxed">{ex.detail}</p>
-              </div>
+            <div key={ex.summary} className="flex items-baseline gap-1.5 text-xs text-gray-700">
+              <span className="shrink-0">{ex.icon}</span>
+              <span className="leading-snug">{renderSummary(ex.summary)}</span>
             </div>
           ))}
         </div>
-      )}
+      </div>
 
       <div className="bg-elevated px-4 py-4">
         <button className={`
-          w-full py-2.5 rounded-xl text-sm font-semibold transition-colors
+          w-full py-2.5 rounded-full text-sm font-semibold transition-colors
           ${f.recommended
             ? 'bg-da-blue hover:bg-da-blue-hover text-white'
             : 'border border-border text-muted hover:text-gray-900 hover:border-muted'}
@@ -192,7 +133,6 @@ interface Props { data: QuoteResult }
 export function FormulaComparison({ data }: Props) {
   return (
     <div className="mt-3 animate-fade-up w-full max-w-2xl">
-      {/* Mutuelle actuelle (si connue) */}
       {data.currentMonthlyPrice && (
         <div className="mb-3 flex items-center justify-between px-4 py-3 rounded-xl bg-gray-50 border border-border text-sm">
           <span className="text-muted">
@@ -204,16 +144,14 @@ export function FormulaComparison({ data }: Props) {
         </div>
       )}
 
-      {/* Raison de la recommandation */}
-      <div className="mb-3 px-4 py-2.5 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-800 leading-relaxed">
+      <div className="mb-3 px-4 py-2.5 rounded-xl bg-red-50 border border-red-100 text-sm text-gray-800 leading-relaxed">
         {data.recommendationReason.split('**').map((part, i) =>
           i % 2 === 1
-            ? <strong key={i} className="text-blue-900">{part}</strong>
+            ? <strong key={i} className="text-gray-900">{part}</strong>
             : part
         )}
       </div>
 
-      {/* 3 formules */}
       <div className="grid grid-cols-3 gap-3">
         {data.formulas.map(f => <FormulaCard key={f.id} f={f} />)}
       </div>

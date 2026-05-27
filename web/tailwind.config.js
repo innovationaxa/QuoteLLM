@@ -4,14 +4,15 @@ export default {
   theme: {
     extend: {
       colors: {
-        sidebar:    '#f4f5f7',
+        sidebar:    '#F5F5F5',
         surface:    '#ffffff',
-        elevated:   '#f0f2f5',
+        elevated:   '#F5F5F5',
         border:     '#e5e7eb',
         muted:      '#6b7280',
-        // Direct Assurances brand (AXA blue)
-        'da-blue':  '#00008F',
-        'da-blue-hover': '#0000b8',
+        // Direct Assurance brand
+        'da-blue':       '#E30613',
+        'da-blue-hover': '#B0000A',
+        'da-text':       '#2B2B2B',
       },
       keyframes: {
         blink: { '0%,100%': { opacity: '1' }, '50%': { opacity: '0' } },

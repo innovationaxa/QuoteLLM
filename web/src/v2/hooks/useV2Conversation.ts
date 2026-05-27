@@ -83,13 +83,6 @@ export function useV2Conversation() {
     setTimeout(() => {
       addMessages(botMsg('', { id: ctaId, widget: 'cta-card', widgetData: { label: 'Continuer sur Direct Assurance' }, consumed: false }));
 
-      // NeedsTuner as optional add-on
-      setTimeout(() => {
-        const tunerData = answersToTuner(answers);
-        addMessages(botMsg('Tu peux aussi affiner tes besoins si tu le souhaites :', {
-          widget: 'needs-tuner', widgetData: tunerData, consumed: false,
-        }));
-      }, 500);
     }, 400);
 
     return result;
@@ -245,7 +238,7 @@ export function useV2Conversation() {
             ],
             consumed: false,
           })), 300);
-        } else if (currentSlots.regime && !currentSlots.family_composition && !familyChipsShownRef.current) {
+        } else if (currentSlots.regime && currentSlots.date_of_birth && !currentSlots.family_composition && !familyChipsShownRef.current) {
           familyChipsShownRef.current = true;
           setTimeout(() => addMessages(botMsg('', {
             widget: 'quick-reply',

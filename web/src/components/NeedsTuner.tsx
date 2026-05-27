@@ -127,7 +127,7 @@ export function NeedsTuner({ data, onApply }: Props) {
                   onChange={e => set(key, Number(e.target.value))}
                   className="needs-slider flex-1"
                   style={{
-                    background: `linear-gradient(to right, #00008F 0%, #00008F ${pct(val)}, #e5e7eb ${pct(val)}, #e5e7eb 100%)`,
+                    background: `linear-gradient(to right, #E30613 0%, #E30613 ${pct(val)}, #e5e7eb ${pct(val)}, #e5e7eb 100%)`,
                   }}
                 />
 

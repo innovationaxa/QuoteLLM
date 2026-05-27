@@ -36,7 +36,7 @@ export function WelcomeCard({ onStart }: Props) {
         </div>
         <button
           onClick={onStart}
-          className="w-full py-4 rounded-2xl bg-da-blue hover:bg-da-blue-hover text-white text-base font-semibold transition-colors shadow-sm"
+          className="w-full py-4 rounded-full bg-da-blue hover:bg-da-blue-hover text-white text-base font-semibold transition-colors shadow-sm"
         >
           Commencer mon devis →
         </button>

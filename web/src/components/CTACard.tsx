@@ -16,13 +16,13 @@ export function CTACard({ onContinue, onCallback }: Props) {
       <div className="flex flex-col gap-2">
         <button
           onClick={onContinue}
-          className="w-full py-3 px-4 rounded-xl bg-da-blue hover:bg-da-blue-hover text-white text-sm font-semibold transition-colors"
+          className="w-full py-3 px-4 rounded-full bg-da-blue hover:bg-da-blue-hover text-white text-sm font-semibold transition-colors"
         >
           Continuer sur Direct Assurance →
         </button>
         <button
           onClick={onCallback}
-          className="w-full py-2.5 px-4 rounded-xl border border-border text-muted hover:text-gray-900 hover:border-muted text-sm transition-colors"
+          className="w-full py-2.5 px-4 rounded-full border border-border text-muted hover:text-gray-900 hover:border-muted text-sm transition-colors"
         >
           Être rappelé(e) par un conseiller
         </button>
