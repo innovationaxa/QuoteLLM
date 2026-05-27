@@ -11,7 +11,16 @@ export type WidgetType =
   | 'needs-tuner'
   | 'cta-card'
   | 'needs-matrix'
-  | 'profile-recap';
+  | 'profile-recap'
+  | 'reimbursement-simulator';
+
+export interface OcrResult {
+  current_insurer: string | null;
+  date_of_birth:   string | null;
+  first_name:      string | null;
+  last_name:       string | null;
+  contract_number: string | null;
+}
 
 export interface QuickReplyOption {
   value: string;
@@ -77,7 +86,7 @@ export interface ChatMessage {
   content:     string;
   timestamp:   Date;
   widget?:     WidgetType;
-  widgetData?: QuickReplyOption[] | RecapData | QuoteResult | QuickEstimateData | NeedsTunerData | NeedsMatrixData | ProfileRecapData | { label: string };
+  widgetData?: QuickReplyOption[] | RecapData | QuoteResult | QuickEstimateData | NeedsTunerData | NeedsMatrixData | ProfileRecapData | { label: string } | { formulas: FormulaResult[]; currentInsurer?: string; currentMonthlyPrice?: number };
   questionId?: string;
   consumed?:   boolean;
 }

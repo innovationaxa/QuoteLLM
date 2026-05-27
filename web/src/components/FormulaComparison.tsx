@@ -1,4 +1,34 @@
 import { FormulaResult, QuoteResult } from '../types';
+import { Tooltip } from './Tooltip';
+
+// ─── jargon lexique ──────────────────────────────────────────────────────────
+
+const JARGON: [string, string][] = [
+  ['100% BR',            'Remboursement au tarif de base Sécu. La mutuelle complète le ticket modérateur sans couvrir les dépassements d\'honoraires.'],
+  ['120% BR',            '20% de plus que le tarif Sécu. Couvre une partie des dépassements des médecins en secteur 2.'],
+  ['125% BR',            '25% de plus que le tarif Sécu. Améliore le remboursement sur le dentaire et les spécialistes.'],
+  ['150% BR',            '50% de plus que le tarif Sécu. Couvre la majorité des dépassements d\'honoraires.'],
+  ['BR',                 'Base de Remboursement fixée par la Sécurité Sociale. Sert de référence de calcul pour votre mutuelle.'],
+  ['chambre individuelle','Chambre à 1 lit à l\'hôpital. Coût moyen : 70–100 €/nuit. Sans cette couverture, chambre partagée uniquement.'],
+  ['clinique privée',    'Établissement privé de votre choix. Les dépassements d\'honoraires y sont souvent plus élevés qu\'en hôpital public.'],
+  ['plafond SS',         'Plafond fixé par la Sécu pour le remboursement optique — très bas (quelques €). Sans mutuelle, vous payez quasi tout.'],
+];
+
+function renderCoverage(line: string): React.ReactNode {
+  for (const [term, explanation] of JARGON) {
+    const idx = line.indexOf(term);
+    if (idx !== -1) {
+      return (
+        <>
+          {line.slice(0, idx)}
+          <Tooltip term={term} explanation={explanation} />
+          {line.slice(idx + term.length)}
+        </>
+      );
+    }
+  }
+  return line;
+}
 
 const COLOR_HEADER: Record<string, string> = {
   blue:   'bg-slate-500',
@@ -96,7 +126,7 @@ function FormulaCard({ f }: { f: FormulaResult }) {
         {Object.values(f.coverage).map(line => (
           <div key={line} className="flex items-start gap-2 text-xs text-muted">
             <span className="text-green-600 shrink-0 mt-0.5">✓</span>
-            <span>{line}</span>
+            <span>{renderCoverage(line)}</span>
           </div>
         ))}
       </div>

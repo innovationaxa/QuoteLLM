@@ -1,9 +1,10 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Sidebar }        from '../components/Sidebar';
 import { MessageBubble }  from '../components/MessageBubble';
 import { TypingIndicator } from '../components/TypingIndicator';
 import { InputBar }       from '../components/InputBar';
 import { WelcomeCard }    from '../components/WelcomeCard';
+import { CardUpload }     from '../components/CardUpload';
 import { ProgressBar }    from '../components/ProgressBar';
 import { useSpeech }      from '../hooks/useSpeech';
 import { useV2Conversation } from './hooks/useV2Conversation';
@@ -11,11 +12,14 @@ import { useV2Conversation } from './hooks/useV2Conversation';
 export default function AppV2() {
   const {
     messages, slots, quote, isTyping, inputDisabled,
-    sendMessage, handleNeedsTuner, handleNeedsMatrix, handleProfileRecap, handleSelectChip,
+    sendMessage, startFromOcr,
+    handleNeedsTuner, handleNeedsMatrix, handleProfileRecap, handleSelectChip,
     continueToBuy, requestCallback,
   } = useV2Conversation();
 
   const { voiceMode, toggleVoiceMode, isSpeaking, speak, stop, ttsError } = useSpeech();
+
+  const [showCardUpload, setShowCardUpload] = useState(false);
 
   const bottomRef    = useRef<HTMLDivElement>(null);
   const prevCountRef = useRef(0);
@@ -37,13 +41,13 @@ export default function AppV2() {
 
   useEffect(() => { if (!voiceMode) stop(); }, [voiceMode, stop]);
 
-  // Wrappers to bridge (id: string) signature from MessageBubble to no-arg hooks
-  const handleContinueToBuy = (_id: string) => continueToBuy();
+  const handleContinueToBuy  = (_id: string) => continueToBuy();
   const handleRequestCallback = (_id: string) => requestCallback();
 
-  // Compute progress step
   const step2Done = !!(slots.hospitalization_need && slots.optics_need && slots.dental_need);
   const progressStep: 1 | 2 | 3 = quote ? 3 : step2Done ? 2 : 1;
+
+  const showWelcome = messages.length === 0 && !isTyping;
 
   return (
     <div className="flex h-full bg-surface text-gray-900 font-sans overflow-hidden">
@@ -64,8 +68,19 @@ export default function AppV2() {
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-4 bg-surface">
           <div className="max-w-2xl mx-auto py-6 flex flex-col">
-            {messages.length === 0 && !isTyping ? (
-              <WelcomeCard onStart={() => sendMessage('Bonjour, je souhaite un devis mutuelle santé')} />
+
+            {showWelcome ? (
+              showCardUpload ? (
+                <CardUpload
+                  onConfirm={ocr => { setShowCardUpload(false); startFromOcr(ocr); }}
+                  onSkip={() => { setShowCardUpload(false); sendMessage('Bonjour, je souhaite un devis mutuelle santé'); }}
+                />
+              ) : (
+                <WelcomeCard
+                  onStart={() => sendMessage('Bonjour, je souhaite un devis mutuelle santé')}
+                  onUploadCard={() => setShowCardUpload(true)}
+                />
+              )
             ) : (
               <>
                 {messages.map(msg => (

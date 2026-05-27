@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 
 import { calculateQuote } from '../../data/pricing';
-import type { ChatMessage, Answers, QuoteResult, NeedsTunerData } from '../../types';
+import type { ChatMessage, Answers, QuoteResult, NeedsTunerData, OcrResult } from '../../types';
 import type { Slots, ApiResponse } from '../types';
 import { EMPTY_SLOTS } from '../types';
 import { answersToTuner, calculateQuoteFromTuner } from '../../data/pricing';
@@ -79,10 +79,21 @@ export function useV2Conversation() {
       }),
     );
 
-    // CTA after a short delay
+    // CTA + simulator after short delays
     setTimeout(() => {
       addMessages(botMsg('', { id: ctaId, widget: 'cta-card', widgetData: { label: 'Continuer sur Direct Assurance' }, consumed: false }));
 
+      setTimeout(() => {
+        addMessages(botMsg('Simulez vos remboursements pour mieux comparer :', {
+          widget: 'reimbursement-simulator',
+          widgetData: {
+            formulas:            result.formulas,
+            currentInsurer:      result.currentInsurer,
+            currentMonthlyPrice: result.currentMonthlyPrice,
+          },
+          consumed: false,
+        }));
+      }, 500);
     }, 400);
 
     return result;
@@ -267,6 +278,23 @@ export function useV2Conversation() {
     sendMessage(label);
   }, [sendMessage]);
 
+  // Pre-fill slots from OCR and start conversation
+  const startFromOcr = useCallback((ocr: OcrResult) => {
+    const partial: Partial<Slots> = {};
+    if (ocr.date_of_birth)   partial.date_of_birth  = ocr.date_of_birth;
+    if (ocr.current_insurer) partial.current_insurer = ocr.current_insurer;
+    if (ocr.current_insurer) partial.currently_insured = true;
+    mergeSlots(partial);
+
+    const parts: string[] = ['Bonjour'];
+    if (ocr.first_name) parts.push(ocr.first_name);
+    const insurerPart = ocr.current_insurer ? ` (assuré·e chez ${ocr.current_insurer})` : '';
+    const dobPart     = ocr.date_of_birth   ? `, né·e le ${ocr.date_of_birth}`          : '';
+    const greeting    = `${parts.join(' ')} ! J'ai importé ma carte mutuelle${insurerPart}${dobPart}. Je voudrais comparer les offres Direct Assurance.`;
+
+    sendMessage(greeting);
+  }, [mergeSlots, sendMessage]);
+
   return {
     messages,
     slots,
@@ -274,6 +302,7 @@ export function useV2Conversation() {
     isTyping,
     inputDisabled,
     sendMessage,
+    startFromOcr,
     handleNeedsTuner,
     handleNeedsMatrix,
     handleProfileRecap,

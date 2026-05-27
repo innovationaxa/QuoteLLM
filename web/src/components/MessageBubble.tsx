@@ -1,5 +1,6 @@
 import { ChatMessage, QuickReplyOption, QuoteResult, QuickEstimateData, NeedsTunerData } from '../types';
 import type { NeedsMatrixData, ProfileRecapData } from '../types';
+import { ReimbursementSimulator, ReimbursementSimulatorData } from './ReimbursementSimulator';
 import { ConsentCard }          from './ConsentCard';
 import { QuickReply }           from './QuickReply';
 import { CalculatingCard }      from './CalculatingCard';
@@ -138,6 +139,10 @@ export function MessageBubble({
             onContinue={() => onContinueToBuy(message.id)}
             onCallback={() => onRequestCallback(message.id)}
           />
+        )}
+
+        {message.widget === 'reimbursement-simulator' && (
+          <ReimbursementSimulator {...(message.widgetData as ReimbursementSimulatorData)} />
         )}
       </div>
     </div>
